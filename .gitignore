@@ -1,0 +1,11 @@
+node_modules/
+out/
+dist/
+.vite/
+*.log
+.DS_Store
+*.tsbuildinfo
+tests/.tmp/
+/.workbuddy
+__pycache__/
+*.pyc

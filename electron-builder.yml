@@ -1,0 +1,52 @@
+appId: com.md2wechatmp.app
+productName: 排版助手
+copyright: 排版助手
+directories:
+  buildResources: build
+  output: dist
+files:
+  - out/**/*
+  - package.json
+asar: true
+extraResources:
+  - from: build/icon.png
+    to: icon.png
+# 转换进程的入口不放进 asar：utilityProcess.fork 需要真实文件路径，
+# 拆包后路径不变（Electron 会自动重定向到 app.asar.unpacked）。
+asarUnpack:
+  - out/main/worker/**/*
+npmRebuild: false
+forceCodeSigning: false
+publish: null
+artifactName: ${name}-${version}-${os}-${arch}.${ext}
+win:
+  icon: build/icon.ico
+  signExecutable: false
+  target:
+    - nsis
+mac:
+  icon: build/icon.icns
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+  identity: "-"
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  notarize: false
+dmg:
+  sign: false
+linux:
+  icon: build/icons
+  category: Office
+  target:
+    - AppImage
+    - tar.gz
+nsis:
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+  createDesktopShortcut: true
+  shortcutName: 排版助手
