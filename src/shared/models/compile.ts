@@ -8,6 +8,7 @@ export type MathMode = 'svg' | 'raw'
 export type PreviewWidth = 320 | 375 | 430
 
 export interface CompileOptions {
+  includeTitle: boolean
   listMode: ListMode
   tableFallback: TableFallback
   codeWrap: CodeWrap
@@ -54,6 +55,7 @@ export interface CompileResult {
 }
 
 export const DEFAULT_COMPILE_OPTIONS: CompileOptions = {
+  includeTitle: true,
   listMode: 'native',
   tableFallback: 'none',
   codeWrap: 'soft',

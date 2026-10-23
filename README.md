@@ -4,6 +4,8 @@
 
 本工具负责文字排版、图片输出、视频占位和复制，不接管微信发布。
 
+在「选项 → 排版输出设置」中可切换「正文包含文章标题」（默认开启）。关闭后，预览、复制与导出的正文会省略第一个顶层一级标题（`# 标题`，也支持 Setext 一级标题），其他章节标题保留。Markdown 原文和文章标题元数据保持完整，选择会自动保存，适合在公众号后台单独填写标题。
+
 ## 为什么不直接粘贴 Markdown
 
 公众号后台的编辑器会丢掉 `class`、`<style>`、外链 CSS 和大部分语义标签，只认行内样式与有限标签。所以转换的目标不是「在浏览器里好看」，而是「粘进后台还不散」。本项目按这条约束设计：
@@ -52,6 +54,10 @@ python3 build.py      # macOS / Linux
 | Windows | NSIS `.exe` 安装包 | 应用、安装包和卸载程序均不签名，保留图标与版本信息 |
 | macOS | `.dmg` 和 `.zip` | `identity: "-"`，仅 ad-hoc 空签名；不使用开发者证书、不公证，DMG 不签名 |
 | Linux | `.AppImage` 和 `.tar.gz` | 不签名 |
+
+Windows 安装器与卸载器通过 `build/installer.nsh` 启用系统 DPI 感知，使用 Microsoft YaHei UI 字体，避免高分屏下整个窗口被 Windows 作为位图放大。NSIS 的现有页面使用系统 DPI 模式；跨不同缩放比例的显示器移动时，仍可能由 Windows 缩放。可运行 `npm run test:installer` 做回归检查（实际 NSIS 编译测试需要 Windows 与编译器），或运行 `node scripts/check-installer-dpi.cjs dist/安装器.exe` 检查最终 EXE 的 DPI 声明。
+
+发布构建只收集 `out/main`、`out/preload`、`out/renderer`，不会将 `out/` 根目录的调试截图、日志和 `out/dev` 示例打入安装包。主进程、预加载及转换进程代码会压缩，不生成或打包 `.map` 调试文件；Electron 界面语言仅保留英语、简体中文和繁体中文。数学公式、代码高亮、视频解码及 GPU 回退组件照常保留。当前没有自动更新功能，Windows 使用完整 7z 压缩安装包，安装器界面与插件再使用 LZMA 压缩，关闭差分更新包优化；将来接入 `electron-updater` 时需重新评估 `nsis.differentialPackage`。运行 `node --test tests/node/package-content.test.cjs` 可检查已生成的 Windows 目录包，默认检查 `dist/slim-final/win-unpacked`，也可通过 `PACKAGED_APP_DIR` 指定目录。
 
 ```bash
 python build.py --platform windows --arch x64

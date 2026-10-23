@@ -52,6 +52,21 @@ const mathHint = computed(
     </header>
 
     <div class="modal-body">
+      <div class="title-option">
+        <label class="switch">
+          <input
+            type="checkbox"
+            :checked="view.options.includeTitle"
+            aria-describedby="include-title-hint"
+            @change="setOption('includeTitle', ($event.target as HTMLInputElement).checked)"
+          />
+          <span class="switch-content">
+            <strong>正文包含文章标题</strong>
+            <em id="include-title-hint">关闭后，预览、复制和导出将省略第一个一级标题（# 标题），其他章节标题保留。公众号标题请单独填写。</em>
+          </span>
+        </label>
+      </div>
+
       <div class="group">
         <p class="group-label">列表处理</p>
         <div class="segment">
@@ -161,6 +176,11 @@ const mathHint = computed(
 }
 .group {
   margin-bottom: 18px;
+}
+.title-option {
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #f1f5f9;
 }
 .group-label {
   margin: 0 0 8px;

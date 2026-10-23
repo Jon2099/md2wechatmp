@@ -1,6 +1,8 @@
 import { beforeEach, expect, it, vi } from 'vitest'
-import { mkdir, mkdtemp, readFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { DEFAULT_SETTINGS } from '@shared/schemas/settings'
+import { settingsPatchSchema } from '@shared/schemas/ipc'
 
 const h = vi.hoisted(() => ({ root: '', fail: false }))
 vi.mock('electron', () => ({ app: { getPath: () => h.root } }))
@@ -16,6 +18,18 @@ beforeEach(async () => {
   h.fail = false
   await mkdir(resolve('tests/.tmp'), { recursive: true })
   h.root = await mkdtemp(resolve('tests/.tmp/settings-'))
+})
+
+it('从旧设置迁移后可关闭标题；其他选项更新和重启不会重置该选择', async () => {
+  const { includeTitle: _, ...legacyOptions } = DEFAULT_SETTINGS.options
+  await writeFile(join(h.root, 'settings.json'), JSON.stringify({ ...DEFAULT_SETTINGS, themeId: 'jade', options: legacyOptions }))
+  const service = await import('../../src/main/services/settings-service')
+  expect((await service.loadSettings()).options.includeTitle).toBe(true)
+  await service.saveSettings(settingsPatchSchema.parse({ options: { includeTitle: false, mathMode: 'raw' } }))
+  await service.saveSettings(settingsPatchSchema.parse({ options: { highlight: false } }))
+  vi.resetModules()
+  const reloaded = await import('../../src/main/services/settings-service')
+  expect(await reloaded.loadSettings()).toMatchObject({ themeId: 'jade', options: { includeTitle: false, mathMode: 'raw', highlight: false } })
 })
 
 it('并发更新不同设置与嵌套选项后，内存和磁盘都保留全部补丁', async () => {

@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 export const compileOptionValuesSchema = z
   .object({
+    includeTitle: z.boolean().default(true),
     listMode: z.enum(['native', 'static']),
     tableFallback: z.enum(['none', 'records']),
     codeWrap: z.enum(['soft', 'scroll']),

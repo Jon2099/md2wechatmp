@@ -5,8 +5,16 @@ directories:
   buildResources: build
   output: dist
 files:
-  - out/**/*
+  - out/main/**/*
+  - out/preload/**/*
+  - out/renderer/**/*
+  - '!out/**/*.map'
   - package.json
+# Chromium 界面语言只保留中文与英语；不裁剪 ICU、字体或媒体解码能力。
+electronLanguages:
+  - en-US
+  - zh-CN
+  - zh-TW
 asar: true
 extraResources:
   - from: build/icon.png
@@ -43,6 +51,9 @@ linux:
     - AppImage
     - tar.gz
 nsis:
+  # 当前不使用 electron-updater；完整安装包可采用更紧凑的 solid 7z 压缩。
+  differentialPackage: false
+  include: build/installer.nsh
   installerIcon: build/icon.ico
   uninstallerIcon: build/icon.ico
   oneClick: false

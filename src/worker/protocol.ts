@@ -1,5 +1,6 @@
 import type { CompileOptions } from '@shared/models/compile'
 import type { ContentSnapshot } from '@shared/models/snapshot'
+import type { ThemeProfile } from '@shared/models/theme'
 
 export interface WorkerCompilePayload {
   baseDir?: string
@@ -8,6 +9,7 @@ export interface WorkerCompilePayload {
   revision: number
   markdown: string
   themeId: string
+  themeProfile?: ThemeProfile
   options: CompileOptions
 }
 

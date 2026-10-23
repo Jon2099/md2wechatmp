@@ -5,6 +5,7 @@ import StatusBar from './components/StatusBar.vue'
 import MarkdownEditor from './features/editor/MarkdownEditor.vue'
 import PreviewPane from './features/preview/PreviewPane.vue'
 import ThemeModal from './features/theme/ThemeModal.vue'
+import ThemeEditorModal from './features/theme/ThemeEditorModal.vue'
 import DiagnosticsPanel from './features/diagnostics/DiagnosticsPanel.vue'
 import SettingsPanel from './features/settings/SettingsPanel.vue'
 import HelpModal from './features/help/HelpModal.vue'
@@ -13,8 +14,10 @@ import ConfirmDialog from './components/ConfirmDialog.vue'
 import {
   acceptRecovery,
   canCopy,
+  closeThemeEditor,
   compileNow,
   copyToWechat,
+  deleteCustomTheme,
   diagnostics,
   diagnosticsSummary,
   dirty,
@@ -27,6 +30,7 @@ import {
   newDocument,
   onTextChange,
   openFile,
+  openThemeEditor,
   reloadExternal,
   save,
   setDismissHelpOnStartup,
@@ -183,6 +187,7 @@ onBeforeUnmount(() => {
       @copy="copyToWechat()"
       @select-theme="(id: ThemeId) => setTheme(id)"
       @open-theme-modal="toggleThemeModal(true)"
+      @open-theme-editor="openThemeEditor()"
       @open-settings="toggleSettings(true)"
       @open-diagnostics="toggleDiagnostics(true)"
       @open-help="toggleHelpModal(true)"
@@ -266,6 +271,17 @@ onBeforeUnmount(() => {
       :active="view.themeId"
       @select="(id: ThemeId) => setTheme(id)"
       @close="toggleThemeModal(false)"
+      @create="(baseId?: string) => { toggleThemeModal(false); openThemeEditor(undefined, baseId) }"
+      @edit="(id: string) => { toggleThemeModal(false); openThemeEditor(id) }"
+      @delete="(id: string) => deleteCustomTheme(id)"
+    />
+
+    <!-- 弹窗：自定义主题编辑器 -->
+    <ThemeEditorModal
+      v-if="view.showThemeEditorModal"
+      :theme-id="view.editingThemeId"
+      :base-theme-id="view.editingThemeBaseId"
+      @close="closeThemeEditor()"
     />
 
     <!-- 弹窗：选项设置 -->

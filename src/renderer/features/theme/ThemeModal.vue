@@ -10,6 +10,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [ThemeId]
   close: []
+  create: [baseThemeId?: string]
+  edit: [id: string]
+  delete: [id: string]
 }>()
 
 const THEME_TAGS: Record<ThemeId, { tag: string; sample: string }> = {
@@ -31,11 +34,19 @@ const THEME_TAGS: Record<ThemeId, { tag: string; sample: string }> = {
         <h2 id="theme-modal-title" class="modal-title">排版主题</h2>
         <p class="modal-subtitle">切换文章配色与字体风格，正文内容与结构自动保留</p>
       </div>
-      <button type="button" class="close-btn" aria-label="关闭" @click="emit('close')">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
-        </svg>
-      </button>
+      <div class="head-actions">
+        <button type="button" class="btn-create-theme" @click="emit('create')">
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+            <path d="M7 1V13M1 7H13" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          新建自定义主题
+        </button>
+        <button type="button" class="close-btn" aria-label="关闭" @click="emit('close')">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M1 1L13 13M1 13L13 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
     </header>
 
     <div class="theme-grid">
@@ -55,9 +66,17 @@ const THEME_TAGS: Record<ThemeId, { tag: string; sample: string }> = {
           </div>
           <div class="theme-meta">
             <span class="theme-name">{{ theme.name }}</span>
-            <span v-if="THEME_TAGS[theme.id]" class="theme-tag">{{ THEME_TAGS[theme.id].tag }}</span>
+            <span v-if="theme.isCustom" class="theme-tag custom-tag">自定义</span>
+            <span v-else-if="THEME_TAGS[theme.id]" class="theme-tag">{{ THEME_TAGS[theme.id].tag }}</span>
           </div>
-          <span v-if="theme.id === active" class="current-badge">当前使用</span>
+          <div class="card-badges">
+            <span v-if="theme.id === active" class="current-badge">当前使用</span>
+            <div v-if="theme.isCustom" class="custom-actions">
+              <span class="action-link" title="编辑主题" @click.stop="emit('edit', theme.id)">编辑</span>
+              <span class="action-link text-danger" title="删除主题" @click.stop="emit('delete', theme.id)">删除</span>
+            </div>
+            <span v-else class="action-link copy-link" title="基于此主题复制创建" @click.stop="emit('create', theme.id)">复制自定义</span>
+          </div>
         </div>
 
         <p class="theme-desc">{{ theme.description }}</p>
@@ -200,6 +219,63 @@ const THEME_TAGS: Record<ThemeId, { tag: string; sample: string }> = {
   border-radius: 50%;
   flex: none;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.btn-create-theme {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #07c160;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.btn-create-theme:hover {
+  background: #06ad56;
+}
+.custom-tag {
+  color: #07c160 !important;
+  font-weight: 600;
+}
+.card-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.custom-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.action-link {
+  font-size: 11px;
+  color: #64748b;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  cursor: pointer;
+}
+.action-link:hover {
+  color: #0f172a;
+  background: #e2e8f0;
+}
+.copy-link:hover {
+  color: #07c160;
+  background: #ecfdf5;
+}
+.text-danger:hover {
+  color: #dc2626;
+  background: #fef2f2;
 }
 @media (max-width: 680px) {
   .theme-grid {

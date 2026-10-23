@@ -8,12 +8,14 @@ import { registerClipboardIpc } from './ipc/clipboard'
 import { registerCompileIpc } from './ipc/compile'
 import { registerDocumentIpc } from './ipc/document'
 import { registerExportIpc } from './ipc/export'
+import { registerThemeIpc } from './ipc/theme'
 import { registerSettingsIpc } from './ipc/settings'
 import { registerWindowIpc } from './ipc/window'
 import { emitToRenderer, setMainWindow } from './ipc/register'
 import { installSecurity } from './security'
 import { createMainWindow } from './window'
 import { VideoPreviewService } from './services/video-preview-service'
+import { themeService } from './services/theme-service'
 
 protocol.registerSchemesAsPrivileged([{
   scheme: VIDEO_PREVIEW_SCHEME,
@@ -31,8 +33,10 @@ function bootstrap(): void {
   registerWindowIpc()
   registerDocumentIpc()
   registerExportIpc()
+  registerThemeIpc()
   registerSettingsIpc()
   registerClipboardIpc()
+  void themeService.loadThemes()
 
   workerHost = new WorkerHost()
   compileService = new CompileService(workerHost, (event) => {

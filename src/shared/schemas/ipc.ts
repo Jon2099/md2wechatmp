@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const themeIdSchema = z.enum([
+const builtinThemeIdSchema = z.enum([
   'ocean-blue',
   'graphite',
   'terracotta',
@@ -11,10 +11,16 @@ export const themeIdSchema = z.enum([
   'ink',
 ])
 
+export const themeIdSchema = z.union([
+  builtinThemeIdSchema,
+  z.string().max(64).regex(/^custom-[a-zA-Z0-9_-]+$/),
+])
+
 export const docIdSchema = z.string().regex(/^doc-[a-z0-9]{4,32}$/)
 
 export const compileOptionsSchema = z
   .object({
+    includeTitle: z.boolean().default(true),
     listMode: z.enum(['native', 'static']),
     tableFallback: z.enum(['none', 'records']),
     codeWrap: z.enum(['soft', 'scroll']),
@@ -76,7 +82,11 @@ export const reloadRequestSchema = z
 export const settingsPatchSchema = z
   .object({
     themeId: themeIdSchema.optional(),
-    options: compileOptionsSchema.partial().optional(),
+    // 补丁仅包含显式修改的字段，不能注入完整配置的默认值。
+    options: compileOptionsSchema.partial().extend({
+      includeTitle: z.boolean().optional(),
+      mathMode: z.enum(['svg', 'raw']).optional(),
+    }).optional(),
     previewWidth: z.union([z.literal(320), z.literal(375), z.literal(430)]).optional(),
     lastFilePath: z.string().max(4096).nullable().optional(),
     dismissHelpOnStartup: z.boolean().optional(),

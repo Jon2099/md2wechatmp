@@ -44,7 +44,7 @@ async function runJob(
       docId: payload.docId,
       revision: payload.revision,
       markdown: payload.markdown,
-      theme: getTheme(payload.themeId),
+      theme: payload.themeProfile ?? getTheme(payload.themeId),
       options: payload.options,
       signal: controller.signal,
     })

@@ -9,6 +9,7 @@
     "icons": "node scripts/build-icons.cjs",
     "icons:check": "node scripts/build-icons.cjs --check",
     "test:icons": "node --test tests/node/icons.test.cjs",
+    "test:installer": "node --test tests/node/installer-dpi.test.cjs",
     "prebuild": "npm run icons",
     "dev": "electron-vite dev",
     "start": "electron-vite preview",

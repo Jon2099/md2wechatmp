@@ -7,6 +7,7 @@ import { checkInputLimits } from '../validate/limits'
 import { parseMarkdown } from '../parse/markdown'
 import { splitFrontMatter } from '../parse/frontmatter'
 import { normalizeDocument } from '../normalize/document'
+import { applyTitlePolicy } from '../normalize/title'
 import { transformMedia } from '../transforms/image'
 import { resolveLinks } from '../transforms/link'
 import { resolveFootnotes } from '../transforms/footnote'
@@ -44,6 +45,7 @@ export async function runPipeline(input: CompileInput, deps: ConverterDeps): Pro
   const ctx = createContext(input, sourceHash, meta, sink)
   ctx.checkAbort()
 
+  const omittedTitleChars = applyTitlePolicy(root, ctx)
   normalizeDocument(root, ctx)
   await transformMedia(root, ctx)
   resolveLinks(root, ctx)
@@ -108,7 +110,7 @@ export async function runPipeline(input: CompileInput, deps: ConverterDeps): Pro
     plainText,
     theme: ctx.theme,
     placeholders: ctx.placeholders.map((record) => record.text),
-    sourceChars: Math.max(0, ctx.source.length - ctx.counters.imageSourceChars),
+    sourceChars: Math.max(0, ctx.source.length - ctx.counters.imageSourceChars - omittedTitleChars),
   })
 
   const diagnostics = [...ctx.diagnostics.list(), ...invariantDiagnostics]

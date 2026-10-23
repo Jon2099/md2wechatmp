@@ -36,8 +36,9 @@ export default defineConfig({
     resolve: { alias: mainAlias },
     build: {
       outDir: 'out/main',
-      minify: false,
-      sourcemap: true,
+      emptyOutDir: true,
+      minify: true,
+      sourcemap: false,
       rollupOptions: {
         input: {
           index: resolve('src/main/index.ts'),
@@ -56,8 +57,9 @@ export default defineConfig({
     resolve: { alias },
     build: {
       outDir: 'out/preload',
-      minify: false,
-      sourcemap: true,
+      emptyOutDir: true,
+      minify: true,
+      sourcemap: false,
       rollupOptions: {
         input: { index: resolve('src/preload/index.ts') },
         external: nodeExternals,

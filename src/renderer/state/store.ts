@@ -2,7 +2,7 @@ import { computed, reactive } from 'vue'
 import type { AppSettings, OpenedDocument, RecoveryHint } from '@shared/models/document'
 import type { CompileOptions, PreviewWidth } from '@shared/models/compile'
 import type { ContentSnapshot } from '@shared/models/snapshot'
-import type { ThemeId, ThemeSummary } from '@shared/models/theme'
+import type { ThemeId, ThemeProfile, ThemeSummary } from '@shared/models/theme'
 import type { Diagnostic } from '@shared/models/diagnostic'
 import type { CompileEvent, Md2wBridge } from '@shared/contracts/ipc'
 import { DEFAULT_COMPILE_OPTIONS } from '@shared/models/compile'
@@ -50,6 +50,9 @@ interface State {
   showSettings: boolean
   showDiagnostics: boolean
   showThemeModal: boolean
+  showThemeEditorModal: boolean
+  editingThemeId: string | null
+  editingThemeBaseId: string | null
   showHelpModal: boolean
   showAboutModal: boolean
   dismissHelpOnStartup: boolean
@@ -89,6 +92,9 @@ const state = reactive<State>({
   showSettings: false,
   showDiagnostics: false,
   showThemeModal: false,
+  showThemeEditorModal: false,
+  editingThemeId: null,
+  editingThemeBaseId: null,
   showHelpModal: false,
   showAboutModal: false,
   dismissHelpOnStartup: false,
@@ -168,6 +174,7 @@ export function dismissToast(): void {
 
 function optionsEqual(left: CompileOptions, right: CompileOptions): boolean {
   return (
+    left.includeTitle === right.includeTitle &&
     left.listMode === right.listMode &&
     left.tableFallback === right.tableFallback &&
     left.codeWrap === right.codeWrap &&
@@ -515,6 +522,63 @@ export function toggleThemeModal(force?: boolean): void {
   state.showThemeModal = force ?? !state.showThemeModal
 }
 
+export function openThemeEditor(themeId?: string, baseThemeId?: string): void {
+  state.editingThemeId = themeId ?? null
+  state.editingThemeBaseId = baseThemeId ?? (themeId ? null : state.themeId)
+  state.showThemeEditorModal = true
+}
+
+export function closeThemeEditor(): void {
+  state.showThemeEditorModal = false
+  state.editingThemeId = null
+  state.editingThemeBaseId = null
+}
+
+export async function refreshThemes(): Promise<void> {
+  const themesResult = await readBridge().listThemes()
+  if (themesResult.ok) state.themes = themesResult.data
+}
+
+export async function saveCustomTheme(profile: ThemeProfile): Promise<boolean> {
+  try {
+    // ThemeProfile 是 JSON 数据；深拷贝为普通对象，避免把嵌套 Vue Proxy 传入 IPC。
+    const payload = JSON.parse(JSON.stringify(profile)) as ThemeProfile
+    const result = await readBridge().saveCustomTheme(payload)
+    if (!result.ok) {
+      notify('error', result.message || '保存自定义主题失败')
+      return false
+    }
+    await refreshThemes()
+    if (state.themeId === result.data.id) {
+      // 编辑正在使用的主题时，ID 不变，但旧排版已经失效。
+      state.compiledSeq = -1
+      scheduleCompile(0)
+    } else {
+      setTheme(result.data.id)
+    }
+    notify('ok', `主题「${result.data.name}」已保存并应用`)
+    closeThemeEditor()
+    return true
+  } catch (error) {
+    notify('error', `保存或应用自定义主题失败：${error instanceof Error ? error.message : '请稍后重试'}`)
+    return false
+  }
+}
+
+export async function deleteCustomTheme(themeId: string): Promise<boolean> {
+  const result = await readBridge().deleteCustomTheme(themeId)
+  if (!result.ok) {
+    notify('error', result.message || '删除自定义主题失败')
+    return false
+  }
+  await refreshThemes()
+  if (state.themeId === themeId) {
+    setTheme('ocean-blue')
+  }
+  notify('info', '自定义主题已删除')
+  return true
+}
+
 export function toggleDiagnostics(force?: boolean): void {
   state.showDiagnostics = force ?? !state.showDiagnostics
 }
@@ -550,6 +614,8 @@ export function handleMenuAction(action: string): void {
     setPreviewWidth(width)
   } else if (action === 'theme:open-modal') {
     toggleThemeModal(true)
+  } else if (action === 'theme:open-editor') {
+    openThemeEditor()
   } else if (action.startsWith('theme:select:')) {
     const themeId = action.split(':')[2] as ThemeId
     setTheme(themeId)

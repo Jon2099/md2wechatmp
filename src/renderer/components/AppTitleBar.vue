@@ -23,6 +23,7 @@ const emit = defineEmits<{
   copy: []
   selectTheme: [ThemeId]
   openThemeModal: []
+  openThemeEditor: []
   openSettings: []
   openDiagnostics: []
   openHelp: []
@@ -238,6 +239,9 @@ onBeforeUnmount(() => {
               <span>选择排版主题...</span>
               <span class="shortcut">Ctrl+Shift+T</span>
             </button>
+            <button type="button" class="dropdown-item" @click="runAction(() => emit('openThemeEditor'))">
+              <span>新建自定义主题...</span>
+            </button>
             <div class="divider" />
             <div class="dropdown-label">快速切换主题</div>
             <button
@@ -251,6 +255,7 @@ onBeforeUnmount(() => {
               <div class="theme-entry">
                 <span class="theme-dot" :style="{ backgroundColor: t.accent }" />
                 <span>{{ t.name }}</span>
+                <span v-if="t.isCustom" class="custom-pill">自</span>
               </div>
               <span v-if="t.id === activeThemeId" class="check">✓</span>
             </button>
@@ -521,6 +526,16 @@ onBeforeUnmount(() => {
   height: 7px;
   border-radius: 50%;
   flex: none;
+}
+.custom-pill {
+  font-size: 9px;
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #ecfdf5;
+  color: #07c160;
+  font-weight: 600;
+  margin-left: 2px;
 }
 
 .center-section {

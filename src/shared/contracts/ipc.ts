@@ -6,7 +6,7 @@ import type {
   SaveResult,
 } from '../models/document'
 import type { CompileOptions, CompileRequest, PreviewWidth } from '../models/compile'
-import type { ThemeId, ThemeSummary } from '../models/theme'
+import type { ThemeId, ThemeProfile, ThemeSummary } from '../models/theme'
 import type { ErrorPayload } from '../errors/codes'
 
 export const CHANNELS = {
@@ -23,6 +23,9 @@ export const CHANNELS = {
   clipboardCopy: 'md2w:clipboard:copy',
   exportHtml: 'md2w:export:html',
   themeList: 'md2w:theme:list',
+  themeGet: 'md2w:theme:get',
+  themeSaveCustom: 'md2w:theme:save-custom',
+  themeDeleteCustom: 'md2w:theme:delete-custom',
   settingsGet: 'md2w:settings:get',
   settingsUpdate: 'md2w:settings:update',
   recoveryAvailable: 'md2w:recovery:available',
@@ -106,6 +109,9 @@ export interface Md2wBridge {
   copySnapshot(req: CopyRequest): Promise<IpcResult<CopyResult>>
   exportHtml(req: ExportRequest): Promise<IpcResult<ExportResult>>
   listThemes(): Promise<IpcResult<ThemeSummary[]>>
+  getTheme(id: string): Promise<IpcResult<ThemeProfile>>
+  saveCustomTheme(profile: ThemeProfile): Promise<IpcResult<ThemeSummary>>
+  deleteCustomTheme(id: string): Promise<IpcResult<{ deleted: boolean }>>
   getSettings(): Promise<IpcResult<AppSettings>>
   updateSettings(patch: SettingsPatch): Promise<IpcResult<AppSettings>>
   takeRecovery(req: { docId: string }): Promise<IpcResult<OpenedDocument | null>>

@@ -2,7 +2,7 @@ import { dialog, type BrowserWindow } from 'electron'
 import { basename } from 'node:path'
 import type { ExportResult } from '@shared/contracts/ipc'
 import { buildStandaloneDocument } from '@shared/export/standalone'
-import { getTheme } from '@themes/builtins/index'
+import { themeService } from './theme-service'
 import { snapshotStore } from './snapshot-store'
 import { writeFileAtomic } from '../store/atomic-write'
 
@@ -15,7 +15,7 @@ export async function exportSnapshotAsHtml(
   window: BrowserWindow | null,
 ): Promise<ExportResult> {
   const snapshot = snapshotStore.get(request.snapshotId, request.expectedRevision)
-  const theme = getTheme(snapshot.themeId)
+  const theme = themeService.getTheme(snapshot.themeId)
   const documentHtml = buildStandaloneDocument({
     html: snapshot.html,
     title: snapshot.meta.title || '排版助手导出',

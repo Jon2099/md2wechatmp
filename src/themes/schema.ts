@@ -54,16 +54,7 @@ const colorsSchema = z
 
 export const themeProfileSchema = z
   .object({
-    id: z.enum([
-      'ocean-blue',
-      'graphite',
-      'terracotta',
-      'jade',
-      'magazine',
-      'amber',
-      'violet',
-      'ink',
-    ]),
+    id: z.string().min(1).max(64),
     name: z.string().min(1).max(32),
     version: z.number().int().min(1),
     description: z.string().min(1).max(200),

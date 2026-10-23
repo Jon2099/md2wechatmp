@@ -1,4 +1,4 @@
-export type ThemeId =
+export type BuiltinThemeId =
   | 'ocean-blue'
   | 'graphite'
   | 'terracotta'
@@ -7,6 +7,8 @@ export type ThemeId =
   | 'amber'
   | 'violet'
   | 'ink'
+
+export type ThemeId = BuiltinThemeId | (string & {})
 
 export type HeadingAlign = 'left' | 'center'
 export type BorderSide = 'bottom' | 'left' | 'top'
@@ -164,4 +166,5 @@ export interface ThemeSummary {
   name: string
   description: string
   accent: string
+  isCustom?: boolean
 }

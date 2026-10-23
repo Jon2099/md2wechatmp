@@ -22,7 +22,8 @@ test('每个标称尺寸都是真实像素尺寸，且有可见的绿色底和�
     for (let i = 0; i < decoded.data.length; i += 4) {
       const [r, g, b, a] = decoded.data.subarray(i, i + 4)
       if (a > 200 && g > r + 30 && g > b + 20) green++
-      if (a > 200 && r > 230 && g > 230 && b > 230) paper++
+      // 小尺寸的纸张与绿色线条会抗锯齿混色，检查明亮纸面而非仅统计纯白像素。
+      if (a > 200 && r > 180 && g > 200 && b > 180) paper++
     }
     assert.ok(green > size * size * .4, `${size}px 缺少绿色背景`)
     assert.ok(paper > size * size * .15, `${size}px 缺少文档图案`)

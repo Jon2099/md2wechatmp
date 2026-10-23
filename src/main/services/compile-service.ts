@@ -1,8 +1,10 @@
 import type { CompileOptions } from '@shared/models/compile'
 import type { ContentSnapshot } from '@shared/models/snapshot'
+import type { ThemeProfile } from '@shared/models/theme'
 import { ErrorCode, Md2wError } from '@shared/errors/codes'
 import type { CompileExecutor } from '../jobs/worker-host'
 import { snapshotStore } from './snapshot-store'
+import { themeService } from './theme-service'
 
 export interface CompilePayload {
   baseDir?: string
@@ -10,6 +12,7 @@ export interface CompilePayload {
   revision: number
   markdown: string
   themeId: string
+  themeProfile?: ThemeProfile
   options: CompileOptions
 }
 
@@ -35,8 +38,9 @@ export class CompileService {
     const taskId = `job-${this.seq}`
     this.currentTaskId = taskId
 
+    const themeProfile = payload.themeProfile ?? themeService.getTheme(payload.themeId)
     void this.executor
-      .run({ jobId: taskId, ...payload })
+      .run({ jobId: taskId, ...payload, themeProfile })
       .then(async (result) => {
         if (this.currentTaskId !== taskId) return
         const snapshot = await this.preparePreview(result, payload.baseDir)

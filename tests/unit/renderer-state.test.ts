@@ -3,6 +3,10 @@ import type { CompileEvent } from '@shared/contracts/ipc'
 import type { CompileRequest } from '@shared/models/compile'
 import type { ContentSnapshot } from '@shared/models/snapshot'
 import type { OpenedDocument } from '@shared/models/document'
+import type { IpcResult } from '@shared/contracts/ipc'
+import type { ThemeProfile, ThemeSummary } from '@shared/models/theme'
+import { reactive } from 'vue'
+import { THEMES } from '@themes/builtins/index'
 import { deferred } from '../helpers/deferred'
 
 let store: typeof import('../../src/renderer/state/store')
@@ -25,7 +29,12 @@ function makeBridge() {
     onCompileResult: (fn: typeof emitResult) => { emitResult = fn; return () => {} },
     onCloseRequested: (fn: typeof closeRequested) => { closeRequested = fn; return () => {} },
     onRecoveryAvailable: () => () => {}, onExternalChange: () => () => {}, onMenuAction: () => () => {},
-    getSettings: async () => ({ ok: false }), listThemes: async () => ({ ok: true, data: [] }),
+    getSettings: async () => ({ ok: false }), listThemes: vi.fn(async () => ({ ok: true, data: [] })),
+    saveCustomTheme: vi.fn(async (profile: ThemeProfile): Promise<IpcResult<ThemeSummary>> => {
+      // 模拟 Electron IPC 的 structured clone，Vue Proxy 在这里会抛错。
+      const payload = structuredClone(profile)
+      return { ok: true, data: { id: payload.id, name: payload.name, description: payload.description, accent: payload.colors.accent, isCustom: true } }
+    }),
     createDocument: vi.fn(async () => ({ ok: true as const, data: doc() })),
     openDocument: vi.fn(async () => ({ ok: true as const, data: doc('doc-second', 'SECOND') as OpenedDocument | null })),
     updateSource: vi.fn(async (_req: { docId: string; baseRevision: number; text: string }) => ({ ok: true as const, data: { revision: ++revision } })),
@@ -35,6 +44,7 @@ function makeBridge() {
     takeRecovery: vi.fn(async (_req: { docId: string }) => ({ ok: true as const, data: { ...doc('doc-recovered', 'RECOVERED'), savedText: 'DISK', revision: 2, dirty: true } })),
     completeClose: vi.fn(async (_req: { docId: string | null; revision: number }) => ({ ok: true as const, data: null })),
     copySnapshot: vi.fn(),
+    updateSettings: vi.fn(async () => ({ ok: true as const, data: {} })),
   }
 }
 let bridge: ReturnType<typeof makeBridge>
@@ -48,6 +58,57 @@ beforeEach(async () => {
   await store.init()
 })
 afterEach(() => { store.dispose(); vi.clearAllTimers(); vi.useRealTimers(); vi.unstubAllGlobals() })
+
+describe('自定义主题保存', () => {
+  const profile = (): ThemeProfile => ({ ...structuredClone(THEMES[1]), id: 'custom-reactive', name: '响应式主题' })
+
+  it('深度响应式草稿转为可克隆快照，保存时不会丢失嵌套设置或共享引用', async () => {
+    const draft = reactive(profile())
+    draft.colors = reactive({ ...draft.colors, accent: '#07c160' })
+    expect(() => structuredClone(draft)).toThrow()
+    store.openThemeEditor(undefined, 'graphite')
+    const saving = store.saveCustomTheme(draft)
+    draft.name = '保存之后继续编辑'
+    draft.colors.accent = '#123456'
+    await expect(saving).resolves.toBe(true)
+    const payload = bridge.saveCustomTheme.mock.calls[0][0]
+    expect(structuredClone(payload)).toMatchObject({ name: '响应式主题', colors: { accent: '#07c160' } })
+    expect(store.view.themeId).toBe('custom-reactive')
+    expect(store.view.showThemeEditorModal).toBe(false)
+    expect(bridge.updateSettings).toHaveBeenCalledWith({ themeId: 'custom-reactive' })
+  })
+
+  it('修改当前主题后，即使 ID 相同也会禁止复制旧排版并重新编译', async () => {
+    store.view.themeId = 'custom-reactive'
+    await store.compileNow()
+    emitResult({ ok: true, taskId: 'job-2', snapshot: snapshot(bridge.requestCompile.mock.calls[0][0]) })
+    expect(store.canCopy.value).toBe(true)
+    await store.saveCustomTheme(reactive(profile()))
+    expect(store.canCopy.value).toBe(false)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(bridge.requestCompile).toHaveBeenCalledTimes(2)
+    expect(bridge.requestCompile.mock.calls[1][0].themeId).toBe('custom-reactive')
+  })
+
+  it('IPC 异常会显示错误并保留编辑器，允许重试', async () => {
+    bridge.saveCustomTheme.mockRejectedValueOnce(new Error('An object could not be cloned.'))
+    store.openThemeEditor(undefined, 'graphite')
+    await expect(store.saveCustomTheme(reactive(profile()))).resolves.toBe(false)
+    expect(store.view.showThemeEditorModal).toBe(true)
+    expect(store.view.themeId).toBe('ocean-blue')
+    expect(store.view.toast).toMatchObject({ tone: 'error', text: expect.stringContaining('could not be cloned') })
+    await expect(store.saveCustomTheme(reactive(profile()))).resolves.toBe(true)
+  })
+
+  it('保存被主进程拒绝时不会关闭编辑器或切换主题', async () => {
+    bridge.saveCustomTheme.mockResolvedValueOnce({ ok: false, code: 'E_FILE_WRITE_FAILED', message: '磁盘已满' })
+    store.openThemeEditor(undefined, 'graphite')
+    await expect(store.saveCustomTheme(reactive(profile()))).resolves.toBe(false)
+    expect(store.view.showThemeEditorModal).toBe(true)
+    expect(store.view.themeId).toBe('ocean-blue')
+    expect(store.view.toast).toMatchObject({ tone: 'error', text: '磁盘已满' })
+  })
+})
 
 describe('保存与恢复的界面状态', () => {
   it('保存期间继续编辑，完成后仍提示未保存', async () => {
@@ -103,6 +164,23 @@ describe('保存与恢复的界面状态', () => {
 })
 
 describe('编译结果归属', () => {
+  it('切换标题选项立即禁止复制旧结果，保存选择并提交新选项后恢复复制', async () => {
+    await store.compileNow()
+    const old = bridge.requestCompile.mock.calls[0][0]
+    emitResult({ ok: true, taskId: 'job-2', snapshot: snapshot(old) })
+    expect(store.canCopy.value).toBe(true)
+    store.setOption('includeTitle', false)
+    expect(bridge.updateSettings).toHaveBeenCalledWith({ options: { includeTitle: false } })
+    expect(store.snapshotFresh.value).toBe(false)
+    expect(store.canCopy.value).toBe(false)
+    expect(store.view.text).toBe('SAVED')
+    await vi.advanceTimersByTimeAsync(0)
+    const latest = bridge.requestCompile.mock.calls.at(-1)![0]
+    expect(latest.options.includeTitle).toBe(false)
+    emitResult({ ok: true, taskId: 'job-3', snapshot: snapshot(latest) })
+    expect(store.canCopy.value).toBe(true)
+  })
+
   it('源文同步期间继续输入，不会提交旧文本并启用复制', async () => {
     const update = deferred<Awaited<ReturnType<typeof bridge.updateSource>>>()
     bridge.updateSource.mockReturnValueOnce(update.promise)
