@@ -21,7 +21,7 @@
 ## 环境要求
 
 - Node.js ≥ 22
-- Python ≥ 3.9（仅 `debug.py` 需要）
+- Python ≥ 3.9（`build.py` 一键打包和 `debug.py` 调试需要）
 - Windows、macOS 或 Linux（请在目标操作系统上打包）
 
 ## 快速开始
@@ -34,26 +34,72 @@ npm run build        # 类型检查 + 构建 main / preload / renderer / worker
 npm start            # 预览构建产物
 npm test             # 单元与集成测试
 npm run test:electron # 构建并运行真实 Electron 回归（独立测试数据目录）
-npm run dist:dir     # 免安装目录包
-npm run dist         # 生成安装包
+npm run dist:dir     # Windows 免安装目录包
+npm run dist         # Windows NSIS 安装包；其他系统使用下方 build.py
 ```
 
 ## 一键打包（build.py）
 
-安装 Node.js 22 或更新版本以及 Python 3.9 或更新版本后，在对应操作系统运行：
+`build.py` 负责预检和组织构建：先用 `electron-vite` 构建应用，再由 `electron-builder` 生成对应平台的分发文件；Windows 安装程序使用 NSIS。
 
-```bash
-python build.py       # Windows；自动选择当前 CPU 架构
-python3 build.py      # macOS / Linux
+### 从源码生成安装包
+
+1. 准备项目源码，安装 Node.js 22 或更新版本、Python 3.9 或更新版本，并确保终端能运行 `node`、`npm` 和 `python`（macOS / Linux 通常为 `python3`）。
+2. 在终端进入项目根目录，也就是同时包含 `package.json` 和 `build.py` 的目录。
+3. 按当前系统执行以下命令；无需先手动运行 `npm run build`。
+
+Windows（PowerShell / CMD）：
+
+```powershell
+python build.py
+# 如果系统只提供 Python 启动器，也可使用：py -3 build.py
 ```
 
-脚本会在开发依赖缺失时运行 `npm ci --include=dev`，随后重新生成并校验图标、执行 TypeScript 检查、构建应用和打包；任意步骤失败即停止，并返回非零退出码。从其他目录运行脚本时，也会以项目目录为工作目录。输出默认位于 `dist/`。
+macOS：
+
+```bash
+python3 build.py
+# 同时支持 Intel 与 Apple Silicon 的通用包：
+python3 build.py --arch universal
+```
+
+Linux：
+
+```bash
+python3 build.py
+```
+
+默认自动选择当前 CPU 架构。脚本会在开发依赖缺失时运行 `npm ci --include=dev`，随后重新生成并校验图标、执行 TypeScript 检查、构建应用和打包；任意步骤失败即停止，并返回非零退出码。从其他目录运行脚本时，也会以项目目录为工作目录。输出默认位于项目根目录下的 `dist/`。
 
 | 运行系统 | 默认产物 | 签名策略 |
 | --- | --- | --- |
 | Windows | NSIS `.exe` 安装包 | 应用、安装包和卸载程序均不签名，保留图标与版本信息 |
 | macOS | `.dmg` 和 `.zip` | `identity: "-"`，仅 ad-hoc 空签名；不使用开发者证书、不公证，DMG 不签名 |
 | Linux | `.AppImage` 和 `.tar.gz` | 不签名 |
+
+### 找到并使用打包产物
+
+打包成功后，终端会显示输出目录。Windows x64、当前版本 `0.1.0` 的安装包为 `dist/md2wechatmp-0.1.0-win-x64.exe`，双击即可安装；版本号取自 `package.json`。macOS 使用生成的 `.dmg` 或 `.zip`，Linux 使用 `.AppImage` 或 `.tar.gz`。
+
+需要免安装运行时，使用 `--dir`：
+
+```powershell
+python build.py --dir --output dist/portable
+```
+
+例如 Windows x64 的应用位于 `dist/portable/win-unpacked/`，可运行其中的 `排版助手.exe`。分发目录包时需保留整个应用目录，不能只复制其中的 EXE。macOS / Linux 使用同样的参数，将命令中的 `python` 换成 `python3`。
+
+### 常用参数与构建验证
+
+开发时可先运行测试，再生成单独存放的发布包：
+
+```bash
+npm test                 # 单元与集成测试
+npm run test:electron    # 构建并进行真实 Electron 回归验证
+python build.py --no-install --output dist/release
+```
+
+macOS / Linux 最后一行使用 `python3`。`build.py` 会执行类型检查，但不会自动运行上述测试；`--no-install` 适合依赖已经完整安装的环境，仍会重新构建最新源码并打包。
 
 Windows 安装器与卸载器通过 `build/installer.nsh` 启用系统 DPI 感知，使用 Microsoft YaHei UI 字体，避免高分屏下整个窗口被 Windows 作为位图放大。NSIS 的现有页面使用系统 DPI 模式；跨不同缩放比例的显示器移动时，仍可能由 Windows 缩放。可运行 `npm run test:installer` 做回归检查（实际 NSIS 编译测试需要 Windows 与编译器），或运行 `node scripts/check-installer-dpi.cjs dist/安装器.exe` 检查最终 EXE 的 DPI 声明。
 
