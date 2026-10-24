@@ -160,6 +160,60 @@ describe('图片直接输出', () => {
 })
 
 describe('视频占位', () => {
+  it('普通 Markdown 视频链接在原位置生成占位，不进入文末链接', async () => {
+    const files = ['video_01_godot_adventure.mp4', 'video_02_turbofan.mp4', 'video_03_nvda_model.mp4']
+    const snapshot = await compile(files.map((file, index) => `片段 ${index + 1}：[观看视频](assets/${file})。`).join('\n\n'), { themeId: 'graphite' })
+    expect(snapshot.status).toBe('ok')
+    expect(placeholderTexts(snapshot)).toEqual(files.map(file => `TODO： ${file}`))
+    expect(snapshot.placeholders.map(record => record.source)).toEqual(files.map(file => `assets/${file}`))
+    expect(snapshot.links).toEqual([])
+    expect(snapshot.stats.videos).toBe(3)
+    expect(snapshot.stats.images).toBe(0)
+    expect(snapshot.plainText).toContain('片段 1：TODO： video_01_godot_adventure.mp4。')
+    expect(snapshot.html).not.toContain('[链接 ')
+    expect(snapshot.html).not.toContain('assets/')
+    expect(snapshot.html).not.toMatch(/<video|<a /)
+  })
+
+  it('参考式、自动链接与带参数的视频链接均生成占位，普通链接从 1 编号', async () => {
+    const snapshot = await compile([
+      '[本地视频][clip]',
+      '<https://example.com/demo.MP4?token=123#t=4>',
+      'https://example.com/movie.webm',
+      '[片段](assets/%E6%BC%94%E7%A4%BA%20%E7%89%87.mov)',
+      '[文档](https://example.com/docs)',
+      '',
+      '[clip]: assets/intro.mp4',
+    ].join('\n\n'))
+    expect(snapshot.status).toBe('ok')
+    expect(placeholderTexts(snapshot)).toEqual(['TODO： intro.mp4', 'TODO： demo.MP4', 'TODO： movie.webm', 'TODO： 演示 片.mov'])
+    expect(snapshot.links.map(link => [link.index, link.url])).toEqual([[1, 'https://example.com/docs']])
+  })
+
+  it('代码中的视频链接不转换，危险协议仍按链接拦截', async () => {
+    const snapshot = await compile('`[视频](assets/demo.mp4)`\n\n```md\n[视频](assets/movie.mp4)\n```\n\n[不安全](javascript:evil.mp4)')
+    expect(snapshot.placeholders).toEqual([])
+    expect(snapshot.links).toEqual([])
+    expect(snapshot.plainText).toContain('[视频](assets/demo.mp4)')
+    expect(snapshot.plainText).toContain('[视频](assets/movie.mp4)')
+    expect(snapshot.diagnostics.some(item => item.code === 'link.blocked-protocol')).toBe(true)
+  })
+
+  it('重复视频逐次占位，图片和视频外层的跳转链接不生成重复占位', async () => {
+    const snapshot = await compile([
+      '[片段](demo.mp4)',
+      '[再次观看](demo.mp4)',
+      '[![封面](https://example.com/cover.png)](demo.mp4)',
+      '[![内层视频](inner.webm)](outer.mp4)',
+    ].join('\n\n'))
+    expect(snapshot.status).toBe('ok')
+    expect(placeholderTexts(snapshot)).toEqual(['TODO： demo.mp4', 'TODO： demo.mp4', 'TODO： inner.webm'])
+    expect(snapshot.stats.images).toBe(1)
+    expect(snapshot.links).toEqual([])
+    expect(snapshot.html).toContain('src="https://example.com/cover.png"')
+    expect(snapshot.html).not.toContain('outer.mp4')
+  })
+
   it('Markdown 语法中的视频文件转为视频占位', async () => {
     const markdown = [
       '![演示视频](videos/demo.mp4)',

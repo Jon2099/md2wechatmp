@@ -5,7 +5,13 @@
   "description": "Markdown 转微信公众号行内样式 HTML（图片直出 + 视频占位 + 一键复制）",
   "author": "md2wechatmp",
   "main": "./out/main/index.js",
+  "config": {
+    "electron_mirror": "https://npmmirror.com/mirrors/electron/",
+    "electron_builder_binaries_mirror": "https://npmmirror.com/mirrors/electron-builder-binaries/"
+  },
   "scripts": {
+    "postinstall": "node scripts/install-electron.cjs --if-present",
+    "electron:install": "node scripts/install-electron.cjs",
     "icons": "node scripts/build-icons.cjs",
     "icons:check": "node scripts/build-icons.cjs --check",
     "test:icons": "node --test tests/node/icons.test.cjs",

@@ -34,6 +34,7 @@ import {
   reloadExternal,
   save,
   setDismissHelpOnStartup,
+  setOption,
   setPreviewWidth,
   setTheme,
   snapshotFresh,
@@ -255,6 +256,7 @@ onBeforeUnmount(() => {
       :stats="stats"
       :counts="diagnosticsSummary"
       :diagnostics-open="view.showDiagnostics"
+      :include-title="view.options.includeTitle"
       :theme-name="currentThemeName"
       :theme-accent="activeAccent"
       :can-copy="canCopy"
@@ -262,6 +264,7 @@ onBeforeUnmount(() => {
       @toggle-diagnostics="toggleDiagnostics()"
       @open-theme="toggleThemeModal(true)"
       @copy="copyToWechat()"
+      @update:include-title="(value: boolean) => setOption('includeTitle', value)"
     />
 
     <!-- 弹窗：主题选择 -->

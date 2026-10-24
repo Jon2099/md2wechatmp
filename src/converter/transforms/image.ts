@@ -34,6 +34,17 @@ export function isVideoUrl(src: string, alt = ''): boolean {
   return false
 }
 
+function isVideoLink(node: MdNode): boolean {
+  if (node.type !== 'link') return false
+  const src = String(node.url ?? '').trim()
+  // Keep unsafe/unsupported protocols in the normal link validation path.
+  if (/^[a-z][a-z\d+.-]*:/i.test(src) && !/^(?:https?:|file:|[a-z]:[\\/])/i.test(src)) return false
+  const hasMedia = (child: MdNode): boolean => child.type === 'wxImage'
+    || child.type === 'image' || child.data?.wxVideoPlaceholder === true
+    || childrenOf(child).some(hasMedia)
+  return isVideoUrl(src) && !childrenOf(node).some(hasMedia)
+}
+
 export function placeholderText(fileName: string): string {
   return `TODO： ${fileName}`
 }
@@ -171,7 +182,7 @@ function countUnnamed(root: MdNode): Record<string, number> {
     }
   }
   transform(root, (node) => {
-    if (node.type === 'image') {
+    if (node.type === 'image' || isVideoLink(node)) {
       const src = String(node.url ?? '')
       const alt = String(node.alt ?? '')
       const isVideo = isVideoUrl(src, alt)
@@ -214,7 +225,7 @@ export async function transformMedia(root: MdNode, ctx: CompileContext): Promise
     const base = baseNameOf(item.src, hint, 'video')
     const value = resolvePlaceholder(base, ctx, ctx.diagnostics, ctx.spanOf(original))
     record(ctx, value, base, original, item.src ?? '')
-    return [{ type: 'text', value }]
+    return [{ type: 'text', value, data: { wxVideoPlaceholder: true } }]
   })
   const hasRawMedia = (items: RawInline[]): boolean => items.some(item => item.kind === 'image' || (item.kind === 'wrap' && hasRawMedia(item.children)))
 
@@ -223,7 +234,7 @@ export async function transformMedia(root: MdNode, ctx: CompileContext): Promise
       const titleRoot = transform({ type: 'root', children: node.wxTitle }, visit)
       node.wxTitle = childrenOf(titleRoot ?? undefined)
     }
-    if (node.type === 'image') {
+    if (node.type === 'image' || isVideoLink(node)) {
       const src = String(node.url ?? '')
       const alt = String(node.alt ?? '')
       const isVideo = isVideoUrl(src, alt)
@@ -245,7 +256,7 @@ export async function transformMedia(root: MdNode, ctx: CompileContext): Promise
       }
       const text = resolvePlaceholder(base, ctx, ctx.diagnostics, ctx.spanOf(node))
       record(ctx, text, base, node, src)
-      return { type: 'text', value: text }
+      return { type: 'text', value: text, position: node.position, data: { wxVideoPlaceholder: true } }
     }
 
     if (node.type === 'html') {

@@ -6,6 +6,7 @@ defineProps<{
   stats: SnapshotStats | null
   counts: { info: number; warning: number; error: number; review: number }
   diagnosticsOpen: boolean
+  includeTitle: boolean
   themeName?: string
   themeAccent?: string
   canCopy?: boolean
@@ -16,6 +17,7 @@ const emit = defineEmits<{
   toggleDiagnostics: []
   openTheme: []
   copy: []
+  'update:includeTitle': [value: boolean]
 }>()
 </script>
 
@@ -62,6 +64,17 @@ const emit = defineEmits<{
       </button>
 
       <button
+        type="button"
+        class="bar-item-btn title-toggle"
+        :aria-pressed="includeTitle"
+        title="控制预览、复制和导出是否包含第一个一级标题"
+        @click="emit('update:includeTitle', !includeTitle)"
+      >
+        <span class="title-switch" aria-hidden="true" />
+        <span>包含文章标题</span>
+      </button>
+
+      <button
         v-if="copyState !== undefined"
         type="button"
         class="primary copy-btn"
@@ -103,6 +116,7 @@ const emit = defineEmits<{
   align-items: center;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 4px;
@@ -151,6 +165,7 @@ const emit = defineEmits<{
   align-items: center;
   gap: 8px;
   flex: none;
+  margin-left: 8px;
 }
 .bar-item-btn {
   display: inline-flex;
@@ -170,6 +185,43 @@ const emit = defineEmits<{
   border-color: #cbd5e1;
   color: #0f172a;
   background: #ffffff;
+}
+.title-toggle {
+  min-height: 24px;
+  white-space: nowrap;
+}
+.title-toggle[aria-pressed='true'] {
+  color: #1d4ed8;
+  border-color: #93b4ed;
+  background: #eff6ff;
+}
+.title-toggle:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+.title-switch {
+  position: relative;
+  width: 24px;
+  height: 14px;
+  flex: none;
+  border-radius: 7px;
+  background: #64748b;
+}
+.title-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+.title-toggle[aria-pressed='true'] .title-switch {
+  background: #1d4ed8;
+}
+.title-toggle[aria-pressed='true'] .title-switch::after {
+  left: 12px;
 }
 .theme-dot {
   width: 7px;

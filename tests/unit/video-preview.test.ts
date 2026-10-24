@@ -23,6 +23,20 @@ beforeEach(async () => {
 afterEach(() => service.clear())
 
 describe('本地视频预览与流式读取', () => {
+  it('普通视频链接复用本地预览服务，导出仍只保留视频占位', async () => {
+    const linked = await compile('[观看视频](%E9%A2%84%E8%A7%88%20%E7%89%87.webm)')
+    const result = await service.prepare(linked, folder)
+    expect(result.status).toBe('ok')
+    expect(result.placeholders).toHaveLength(1)
+    expect(result.placeholders[0].previewUrl).toMatch(/^md2w-media:\/\/video\/[a-f0-9-]{36}$/)
+    expect(result.html).toContain('TODO： 预览 片.webm')
+    expect(result.html).not.toMatch(/<video|md2w-media|\[链接 /)
+    expect(Buffer.from(await (await service.respond(new Request(result.placeholders[0].previewUrl!))).arrayBuffer())).toEqual(bytes)
+    const html = buildPreviewDocument({ html: result.html, placeholders: result.placeholders, title: '预览', accent: '#1d4ed8', width: 375 })
+    expect(html).toContain('<video controls=')
+    expect(html).toContain(LOCAL_VIDEO_NOTICE)
+  })
+
   it('相对路径与 file URL 生成不含本地路径的预览地址，不改写复制和导出内容', async () => {
     const result = await service.prepare(snapshot, folder)
     const record = result.placeholders[0]

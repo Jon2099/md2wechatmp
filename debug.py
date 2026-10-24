@@ -334,8 +334,9 @@ def preflight() -> bool:
         problems.append('缺少 electron-vite：执行 npm install。')
     if not electron_binary().exists():
         problems.append(
-            'Electron 二进制缺失：执行 node node_modules/electron/install.js'
-            '（国内网络可先设置 ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/）。'
+            'Electron 二进制缺失：执行 npm run electron:install（默认使用国内镜像）。'
+            'Electron 42+ 不再随 npm install 自动下载，项目 postinstall 会补齐；'
+            '若安装时跳过了脚本，请手动执行上述命令。'
         )
 
     for item in problems:
@@ -462,7 +463,7 @@ def cmd_check(port: int, main_port: int, inspect: bool) -> int:
     rows.append((bool(ec), 'electron 包', ec or '未安装'))
 
     binary = electron_binary()
-    rows.append((binary.exists(), 'Electron 二进制', str(binary) if binary.exists() else '缺失，需执行 install.js'))
+    rows.append((binary.exists(), 'Electron 二进制', str(binary) if binary.exists() else '缺失，执行 npm run electron:install'))
 
     vn = package_version('vite-node')
     rows.append((bool(vn), 'vite-node', vn or '未安装（compile 模式不可用）'))
