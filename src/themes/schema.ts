@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ThemeProfile } from '@shared/models/theme'
+import { BODY_TEXT_COLOR } from '@shared/models/theme'
 
 const px = z.number().finite().min(0).max(240)
 const hex = z.string().regex(/^#[0-9a-f]{6}$/i)
@@ -25,7 +26,8 @@ const headingLevelSchema = z
 
 const colorsSchema = z
   .object({
-    text: hex,
+    // Accept older custom palettes while keeping body text consistent across themes.
+    text: hex.transform(() => BODY_TEXT_COLOR),
     textSecondary: hex,
     textMuted: hex,
     heading: hex,

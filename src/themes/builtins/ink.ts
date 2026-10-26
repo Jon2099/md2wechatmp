@@ -7,7 +7,6 @@ export const INK = defineTheme({
   font: { body: SANS_STACK, heading: SERIF_STACK },
   sizes: { body: 15.5, list: 14.5, table: 13, tableSmall: 12.5, code: 13, small: 12.5 },
   colors: {
-    text: '#27272a',
     textSecondary: '#52525b',
     textMuted: '#71717a',
     heading: '#09090b',

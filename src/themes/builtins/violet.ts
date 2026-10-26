@@ -7,7 +7,6 @@ export const VIOLET = defineTheme({
   font: { body: SANS_STACK, heading: SANS_STACK },
   sizes: { body: 15.5, list: 14.5, table: 13, tableSmall: 12.5, code: 13, small: 12.5 },
   colors: {
-    text: '#1e1b2e',
     textSecondary: '#4c475d',
     textMuted: '#76708b',
     heading: '#161329',

@@ -7,7 +7,6 @@ export const TERRACOTTA = defineTheme({
   font: { body: SANS_STACK, heading: SANS_STACK },
   sizes: { body: 15.5, list: 14.5, table: 13, tableSmall: 12.5, code: 12.5, small: 12.5 },
   colors: {
-    text: '#443b36',
     textSecondary: '#6b5f57',
     textMuted: '#8a7b71',
     heading: '#2f2622',

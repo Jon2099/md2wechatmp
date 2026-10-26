@@ -1,3 +1,5 @@
+export const BODY_TEXT_COLOR = '#2d2d2d'
+
 export type BuiltinThemeId =
   | 'ocean-blue'
   | 'graphite'

@@ -7,7 +7,6 @@ export const MAGAZINE = defineTheme({
   font: { body: SANS_STACK, heading: SERIF_STACK },
   sizes: { body: 16, list: 15, table: 13, tableSmall: 12.5, code: 13.5, small: 12.5 },
   colors: {
-    text: '#2c2825',
     textSecondary: '#5c544e',
     textMuted: '#887c74',
     heading: '#1e1917',

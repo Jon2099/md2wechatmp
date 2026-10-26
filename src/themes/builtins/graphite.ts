@@ -7,7 +7,6 @@ export const GRAPHITE = defineTheme({
   font: { body: SANS_STACK, heading: SANS_STACK },
   sizes: { body: 16, list: 15, table: 13.5, tableSmall: 12.5, code: 13, small: 12.5 },
   colors: {
-    text: '#1f2328',
     textSecondary: '#4b5563',
     textMuted: '#6b7280',
     heading: '#0b0f19',

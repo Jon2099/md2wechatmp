@@ -7,7 +7,6 @@ export const JADE = defineTheme({
   font: { body: SANS_STACK, heading: SANS_STACK },
   sizes: { body: 15.5, list: 14.5, table: 13, tableSmall: 12.5, code: 12.5, small: 12 },
   colors: {
-    text: '#243430',
     textSecondary: '#3f5b54',
     textMuted: '#6b837c',
     heading: '#12211d',

@@ -7,7 +7,6 @@ export const AMBER = defineTheme({
   font: { body: SANS_STACK, heading: SANS_STACK },
   sizes: { body: 15.5, list: 14.5, table: 13, tableSmall: 12.5, code: 13, small: 12.5 },
   colors: {
-    text: '#292524',
     textSecondary: '#57534e',
     textMuted: '#78716c',
     heading: '#1c1917',

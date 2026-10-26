@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ThemeProfile } from '@shared/models/theme'
+import { BODY_TEXT_COLOR } from '@shared/models/theme'
 
 const props = defineProps<{
   draft: ThemeProfile
@@ -35,10 +36,10 @@ const props = defineProps<{
         </div>
 
         <div class="color-item">
-          <span class="color-label">正文文字 (Text)</span>
+          <span class="color-label">正文文字（所有主题固定）</span>
           <div class="color-picker-row">
-            <input v-model="draft.colors.text" type="color" class="color-input" />
-            <input v-model="draft.colors.text" type="text" class="hex-input" />
+            <input :value="BODY_TEXT_COLOR" type="color" class="color-input" aria-label="固定正文颜色" disabled />
+            <input :value="BODY_TEXT_COLOR" type="text" class="hex-input" aria-label="正文颜色值" readonly />
           </div>
         </div>
 

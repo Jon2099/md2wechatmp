@@ -1,4 +1,5 @@
 import type { ThemeProfile } from '@shared/models/theme'
+import { BODY_TEXT_COLOR } from '@shared/models/theme'
 
 export const SANS_STACK =
   "-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif"
@@ -40,7 +41,7 @@ export const BASE_THEME: ThemeProfile = {
   font: { body: SANS_STACK, heading: SANS_STACK, mono: MONO_STACK },
   sizes: { body: 15, list: 14, table: 13, tableSmall: 12.5, code: 13, small: 12.5 },
   colors: {
-    text: '#2d2d2d',
+    text: BODY_TEXT_COLOR,
     textSecondary: '#475569',
     textMuted: '#64748b',
     heading: '#111827',
