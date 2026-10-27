@@ -37,6 +37,8 @@ export interface InvariantInput {
   theme: ThemeProfile
   placeholders: string[]
   sourceChars: number
+  inlineColors?: string[]
+  inlineFontSizes?: number[]
 }
 
 function parseStyle(style: string): Array<[string, string]> {
@@ -69,6 +71,8 @@ export function checkInvariants(input: InvariantInput): Diagnostic[] {
   const fragment = parseFragment(input.html) as unknown as AnyNode
   const fontSizes = allowedFontSizes(input.theme)
   const colors = allowedColors(input.theme)
+  for (const color of input.inlineColors ?? []) colors.add(color)
+  for (const size of input.inlineFontSizes ?? []) fontSizes.add(size)
   let elementCount = 0
   let missingStyle = 0
 

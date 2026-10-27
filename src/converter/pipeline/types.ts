@@ -94,10 +94,13 @@ export interface CompileContext {
   placeholders: PlaceholderRecord[]
   links: LinkRecord[]
   footnotes: FootnoteRecord[]
+  inlineColors: Set<string>
+  inlineFontSizes: Set<number>
   counters: {
     images: number
     imageBytes: number
     imageSourceChars: number
+    inlineMarkupChars: number
     unnamedByKind: Record<string, number>
     unnamedTotalByKind: Record<string, number>
     link: number

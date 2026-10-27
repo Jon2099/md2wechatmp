@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { SnapshotStats } from '@shared/models/snapshot'
 
-defineProps<{
+const props = defineProps<{
   status: string
   stats: SnapshotStats | null
   counts: { info: number; warning: number; error: number; review: number }
@@ -11,14 +12,36 @@ defineProps<{
   themeAccent?: string
   canCopy?: boolean
   copyState?: 'idle' | 'copied' | 'failed'
+  autoSaveInterval?: number
+  lastAutoSavedAt?: number | null
 }>()
 
 const emit = defineEmits<{
   toggleDiagnostics: []
   openTheme: []
+  openSettings: []
   copy: []
   'update:includeTitle': [value: boolean]
 }>()
+
+const autoSaveLabel = computed(() => {
+  if (!props.autoSaveInterval) return ''
+  if (props.lastAutoSavedAt) {
+    const time = new Date(props.lastAutoSavedAt).toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+    return `已自动保存 ${time}`
+  }
+  const min = Math.round(props.autoSaveInterval / 60)
+  return min >= 1 ? `自动保存: ${min}分钟` : `自动保存: ${props.autoSaveInterval}秒`
+})
+
+const autoSaveTooltip = computed(() => {
+  if (!props.autoSaveInterval) return ''
+  return '定时自动保存已开启（点击配置时间间隔）'
+})
 </script>
 
 <template>
@@ -36,6 +59,16 @@ const emit = defineEmits<{
         <span v-if="stats.codeBlocks" class="chip">代码 {{ stats.codeBlocks }}</span>
         <span v-if="stats.tables" class="chip">表格 {{ stats.tables }}</span>
       </div>
+
+      <span v-if="autoSaveLabel" class="chip-divider">/</span>
+      <span
+        v-if="autoSaveLabel"
+        class="chip auto-save-chip"
+        :title="autoSaveTooltip"
+        @click.stop="emit('openSettings')"
+      >
+        {{ autoSaveLabel }}
+      </span>
     </div>
 
     <div class="status-right">
@@ -154,6 +187,14 @@ const emit = defineEmits<{
 .chip-divider {
   color: #cbd5e1;
   font-size: 11px;
+}
+.auto-save-chip {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.auto-save-chip:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
 }
 .chip {
   font-size: 11.5px;

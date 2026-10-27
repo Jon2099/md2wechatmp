@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ThemeProfile } from '@shared/models/theme'
-import { BODY_FONT_PRESETS, HEADING_FONT_PRESETS, MONO_FONT_PRESETS } from './types'
 
 const props = defineProps<{
   draft: ThemeProfile
@@ -9,32 +8,6 @@ const props = defineProps<{
 
 <template>
   <div class="tab-panel">
-    <section class="form-group">
-      <h3 class="section-title">字体族 (Font Family)</h3>
-      <div class="row">
-        <label class="field flex-1">
-          <span class="label-text">正文字体预设</span>
-          <select v-model="draft.font.body" class="select-input">
-            <option v-for="opt in BODY_FONT_PRESETS" :key="opt.label" :value="opt.value">{{ opt.label }}</option>
-          </select>
-        </label>
-        <label class="field flex-1">
-          <span class="label-text">标题字体预设</span>
-          <select v-model="draft.font.heading" class="select-input">
-            <option v-for="opt in HEADING_FONT_PRESETS" :key="opt.label" :value="opt.value || draft.font.body">{{ opt.label }}</option>
-          </select>
-        </label>
-      </div>
-      <div class="row">
-        <label class="field flex-1">
-          <span class="label-text">等宽代码字体</span>
-          <select v-model="draft.font.mono" class="select-input">
-            <option v-for="opt in MONO_FONT_PRESETS" :key="opt.label" :value="opt.value">{{ opt.label }}</option>
-          </select>
-        </label>
-      </div>
-    </section>
-
     <section class="form-group">
       <h3 class="section-title">字号与段落排版 (Typography & Spacing)</h3>
       <div class="sliders-grid">

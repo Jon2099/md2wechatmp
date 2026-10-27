@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   previewWidth: 375,
   lastFilePath: null,
   dismissHelpOnStartup: false,
+  autoSaveInterval: 3,
 }
 
 export const compileOptionValuesSchema = z
@@ -32,6 +33,7 @@ export const appSettingsSchema = z
     previewWidth: z.union([z.literal(320), z.literal(375), z.literal(430)]),
     lastFilePath: z.string().max(4096).nullable(),
     dismissHelpOnStartup: z.boolean().default(false),
+    autoSaveInterval: z.number().int().min(0).max(3600).default(3),
   })
   .strict()
 

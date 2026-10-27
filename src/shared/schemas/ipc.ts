@@ -90,5 +90,6 @@ export const settingsPatchSchema = z
     previewWidth: z.union([z.literal(320), z.literal(375), z.literal(430)]).optional(),
     lastFilePath: z.string().max(4096).nullable().optional(),
     dismissHelpOnStartup: z.boolean().optional(),
+    autoSaveInterval: z.number().int().min(0).max(3600).optional(),
   })
   .strict()

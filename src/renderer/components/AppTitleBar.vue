@@ -11,6 +11,7 @@ const props = defineProps<{
   themes: ThemeSummary[]
   activeThemeId: ThemeId
   previewWidth: PreviewWidth
+  autoSaveInterval?: number
 }>()
 
 const emit = defineEmits<{
@@ -18,6 +19,7 @@ const emit = defineEmits<{
   open: []
   save: []
   saveAs: []
+  toggleAutoSave: []
   export: []
   recompile: []
   copy: []
@@ -146,6 +148,15 @@ onBeforeUnmount(() => {
             <button type="button" class="dropdown-item" @click="runAction(() => emit('saveAs'))">
               <span>另存为...</span>
               <span class="shortcut">Ctrl+Shift+S</span>
+            </button>
+            <button
+              type="button"
+              class="dropdown-item checkable"
+              :class="{ checked: (autoSaveInterval ?? 0) > 0 }"
+              @click="runAction(() => emit('toggleAutoSave'))"
+            >
+              <span>自动保存</span>
+              <span v-if="(autoSaveInterval ?? 0) > 0" class="check">✓</span>
             </button>
             <div class="divider" />
             <button type="button" class="dropdown-item" @click="runAction(() => emit('export'))">

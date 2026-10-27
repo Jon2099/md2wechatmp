@@ -13,8 +13,8 @@ let store: typeof import('../../src/renderer/state/store')
 let emitResult: (event: CompileEvent) => void
 let closeRequested: () => void
 let revision: number
-const doc = (id = 'doc-first', text = 'SAVED'): OpenedDocument => ({
-  id, text, savedText: text, fileName: `${id}.md`, pathLabel: `${id}.md`, revision: 1, savedRevision: 1, dirty: false, externalChanged: false,
+const doc = (id = 'doc-first', text = 'SAVED', hasFilePath = false): OpenedDocument => ({
+  id, text, savedText: text, fileName: `${id}.md`, pathLabel: `${id}.md`, revision: 1, savedRevision: 1, dirty: false, externalChanged: false, hasFilePath,
 })
 function snapshot(request: CompileRequest, text = 'SAVED'): ContentSnapshot {
   return {
@@ -36,7 +36,7 @@ function makeBridge() {
       return { ok: true, data: { id: payload.id, name: payload.name, description: payload.description, accent: payload.colors.accent, isCustom: true } }
     }),
     createDocument: vi.fn(async () => ({ ok: true as const, data: doc() })),
-    openDocument: vi.fn(async () => ({ ok: true as const, data: doc('doc-second', 'SECOND') as OpenedDocument | null })),
+    openDocument: vi.fn(async () => ({ ok: true as const, data: doc('doc-second', 'SECOND', true) as OpenedDocument | null })),
     updateSource: vi.fn(async (_req: { docId: string; baseRevision: number; text: string }) => ({ ok: true as const, data: { revision: ++revision } })),
     requestCompile: vi.fn(async (_req: CompileRequest) => ({ ok: true as const, data: { taskId: `job-${revision}` } })),
     saveDocument: vi.fn(async (req: { docId: string; revision: number }) => ({ ok: true as const, data: { ok: true as const, revision: req.revision, fileName: 'saved.md', pathLabel: 'saved.md' } })),
@@ -107,6 +107,32 @@ describe('自定义主题保存', () => {
     expect(store.view.showThemeEditorModal).toBe(true)
     expect(store.view.themeId).toBe('ocean-blue')
     expect(store.view.toast).toMatchObject({ tone: 'error', text: '磁盘已满' })
+  })
+})
+
+describe('预览选区格式回写', () => {
+  it('修改进入正常源文保存流程，并立即禁止复制旧预览', async () => {
+    await store.compileNow()
+    emitResult({ ok: true, taskId: 'job-2', snapshot: snapshot(bridge.requestCompile.mock.calls[0][0]) })
+    expect(store.canCopy.value).toBe(true)
+    store.formatPreviewSelection({ snapshotId: store.view.snapshot!.id, ranges: [{ start: 0, end: 5, text: 'SAVED' }], style: { color: '#e53935' } })
+    expect(store.view.text).toBe('<span style="color:#e53935">SAVED</span>')
+    expect(store.dirty.value).toBe(true)
+    expect(store.canCopy.value).toBe(false)
+    await store.save()
+    expect(store.view.savedText).toContain('color:#e53935')
+  })
+
+  it('过期快照和继续输入后的选区不能回写', async () => {
+    await store.compileNow()
+    emitResult({ ok: true, taskId: 'job-2', snapshot: snapshot(bridge.requestCompile.mock.calls[0][0]) })
+    const payload = { snapshotId: store.view.snapshot!.id, ranges: [{ start: 0, end: 5, text: 'SAVED' }], style: { color: '#e53935' } }
+    store.formatPreviewSelection({ ...payload, snapshotId: 'old-snapshot' })
+    expect(store.view.text).toBe('SAVED')
+    store.onTextChange('NEW TEXT')
+    store.formatPreviewSelection(payload)
+    expect(store.view.text).toBe('NEW TEXT')
+    expect(store.view.toast?.text).toContain('重新选择')
   })
 })
 
@@ -376,5 +402,62 @@ describe('应用内未保存确认弹窗', () => {
 
     store.handleMenuAction('help:open-about')
     expect(store.view.showAboutModal).toBe(true)
+  })
+})
+
+describe('定时自动保存', () => {
+  it('已打开的文件在修改后定时静默写回磁盘，清空 dirty 并不弹出全局 toast', async () => {
+    await store.openFile()
+    store.dismissToast()
+    expect(store.view.hasFilePath).toBe(true)
+    store.onTextChange('AUTO SAVED TEXT')
+    expect(store.dirty.value).toBe(true)
+    bridge.saveDocument.mockClear()
+
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(bridge.saveDocument).toHaveBeenCalledTimes(1)
+    expect(store.dirty.value).toBe(false)
+    expect(store.view.savedText).toBe('AUTO SAVED TEXT')
+    expect(store.view.lastAutoSavedAt).not.toBeNull()
+    expect(store.view.toast).toBeNull()
+  })
+
+  it('未命名的空白文档定时刷新草稿副本，不触发主进程 saveDocument 保存对话框', async () => {
+    store.view.hasFilePath = false
+    store.onTextChange('DRAFT EDIT')
+    bridge.saveDocument.mockClear()
+    bridge.updateSource.mockClear()
+
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(bridge.saveDocument).not.toHaveBeenCalled()
+    expect(bridge.updateSource).toHaveBeenCalled()
+    expect(store.view.lastAutoSavedAt).not.toBeNull()
+  })
+
+  it('存在外部冲突时自动保存主动跳过，避免静默覆盖外部修改', async () => {
+    await store.openFile()
+    store.onTextChange('CONFLICT EDIT')
+    store.view.externalConflict = true
+    bridge.saveDocument.mockClear()
+
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(bridge.saveDocument).not.toHaveBeenCalled()
+    expect(store.dirty.value).toBe(true)
+  })
+
+  it('支持切换自动保存开关与调整时间间隔', async () => {
+    expect(store.view.autoSaveInterval).toBe(3)
+    store.toggleAutoSave()
+    expect(store.view.autoSaveInterval).toBe(0)
+    expect(bridge.updateSettings).toHaveBeenCalledWith({ autoSaveInterval: 0 })
+
+    store.setAutoSaveInterval(30)
+    expect(store.view.autoSaveInterval).toBe(30)
+    expect(bridge.updateSettings).toHaveBeenCalledWith({ autoSaveInterval: 30 })
+
+    store.handleMenuAction('file:toggle-autosave')
+    expect(store.view.autoSaveInterval).toBe(0)
+    store.toggleAutoSave()
+    expect(store.view.autoSaveInterval).toBe(3)
   })
 })

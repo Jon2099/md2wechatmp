@@ -2,10 +2,13 @@ import type { CompileContext, MdNode } from '../pipeline/types'
 import { childrenOf, textOf } from '../pipeline/ast'
 import { analyzeRawHtml, type RawInline } from '../parse/raw-html'
 import { ROLES, olRole, ulRole } from '@shared/roles'
+import { serializeInlineTextStyle, type SourceTextMapping } from '@shared/inline-text-style'
+import { sourceTextPieces } from '../serialize/source-mapping'
 
 export interface HText {
   type: 'text'
   value: string
+  source?: SourceTextMapping
 }
 
 export interface HElement {
@@ -323,13 +326,13 @@ class HastBuilder {
       // remark keeps an inline HTML start tag, its Markdown children, and the
       // end tag as siblings. Pair safe wrappers before rendering those children.
       if (node.type === 'html') {
-        const opening = /^<(sub|sup|u)(?:\s[^<>]*?)?\s*>$/i.exec(String(node.value))
+        const opening = /^<(sub|sup|u|span)(?:\s[^<>]*?)?\s*>$/i.exec(String(node.value))
         if (opening) {
           const stack = [opening[1].toLowerCase()]
           let end = index + 1
           for (; end < nodes.length; end += 1) {
             if (nodes[end].type !== 'html') continue
-            const tag = /^<(\/)?(sub|sup|u)(?:\s[^<>]*?)?\s*>$/i.exec(String(nodes[end].value))
+            const tag = /^<(\/)?(sub|sup|u|span)(?:\s[^<>]*?)?\s*>$/i.exec(String(nodes[end].value))
             if (!tag) continue
             if (!tag[1]) stack.push(tag[2].toLowerCase())
             else if (stack.at(-1) !== tag[2].toLowerCase()) break
@@ -337,14 +340,21 @@ class HastBuilder {
             if (stack.length === 0) break
           }
           if (stack.length === 0 && end < nodes.length) {
-            out.push(el(opening[1].toLowerCase(), undefined, this.inline(nodes.slice(index + 1, end))))
+            const tagName = opening[1].toLowerCase()
+            const analyzed = tagName === 'span' ? analyzeRawHtml(`${node.value}</span>`).inline[0] : undefined
+            const inlineStyle = analyzed?.kind === 'wrap' ? analyzed.style : undefined
+            if (inlineStyle?.color) this.ctx.inlineColors.add(inlineStyle.color)
+            if (inlineStyle?.fontSize) this.ctx.inlineFontSizes.add(parseInt(inlineStyle.fontSize, 10))
+            if (tagName === 'span') this.ctx.counters.inlineMarkupChars += String(node.value).length + String(nodes[end].value).length
+            out.push(el(tagName, undefined, this.inline(nodes.slice(index + 1, end)),
+              inlineStyle ? serializeInlineTextStyle(inlineStyle) || 'display:inline' : tagName === 'span' ? 'display:inline' : undefined))
             index = end
             continue
           }
           out.push(text(String(node.value)))
           continue
         }
-        if (/^<\/(sub|sup|u)\s*>$/i.test(String(node.value))) {
+        if (/^<\/(sub|sup|u|span)\s*>$/i.test(String(node.value))) {
           out.push(text(String(node.value)))
           continue
         }
@@ -362,7 +372,7 @@ class HastBuilder {
           out.push(el(String(node.tag), undefined, this.inline(childrenOf(node))))
           break
         case 'text':
-          out.push(text(String(node.value ?? '')))
+          out.push(...sourceTextPieces(this.ctx.source, node).map(piece => ({ ...text(piece.value), source: piece.source })))
           break
         case 'strong':
           out.push(el('strong', undefined, this.inline(childrenOf(node))))

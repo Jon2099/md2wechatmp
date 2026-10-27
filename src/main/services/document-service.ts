@@ -30,6 +30,7 @@ function toState(entry: DocEntry): DocumentState {
     savedRevision: entry.savedRevision,
     dirty: entry.revision !== entry.savedRevision,
     externalChanged: entry.externalChanged,
+    hasFilePath: Boolean(entry.filePath),
   }
 }
 

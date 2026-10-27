@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import ModalShell from '../../components/ModalShell.vue'
-import { setOption, toggleSettings, view } from '@renderer/state/store'
+import { setAutoSaveInterval, setOption, toggleSettings, view } from '@renderer/state/store'
+
+const autoSaveIntervals: Array<{ value: number; label: string }> = [
+  { value: 0, label: '关闭' },
+  { value: 3, label: '3 秒 (默认)' },
+  { value: 10, label: '10 秒' },
+  { value: 30, label: '30 秒' },
+  { value: 60, label: '1 分钟' },
+  { value: 300, label: '5 分钟' },
+]
 import type { CodeWrap, ListMode, MathMode, TableFallback } from '@shared/models/compile'
 
 const listModes: Array<{ value: ListMode; label: string; hint: string }> = [
@@ -35,10 +44,16 @@ const tableHint = computed(
 const mathHint = computed(
   () => mathModes.find((entry) => entry.value === view.options.mathMode)?.hint ?? '',
 )
+
+const autoSaveHint = computed(() => {
+  if (view.autoSaveInterval <= 0) return '已关闭自动保存，仅在手动保存 (Ctrl+S) 时写入文件。'
+  const matched = autoSaveIntervals.find((item) => item.value === view.autoSaveInterval)
+  return `每隔 ${matched?.label ?? '1 分钟'} 自动保存当前修改。已保存文档写回磁盘，未命名文档自动暂存。`
+})
 </script>
 
 <template>
-  <ModalShell labelledby="settings-modal-title" width="500px" @close="toggleSettings(false)">
+  <ModalShell labelledby="settings-modal-title" width="640px" @close="toggleSettings(false)">
     <header class="modal-head">
       <div>
         <h2 id="settings-modal-title" class="modal-title">排版与输出设置</h2>
@@ -159,6 +174,25 @@ const mathHint = computed(
           </span>
         </label>
       </div>
+
+      <div class="group">
+        <p class="group-label">定时自动保存</p>
+        <div class="segment">
+          <button
+            v-for="item in autoSaveIntervals"
+            :key="item.value"
+            type="button"
+            class="segment-btn"
+            :class="{ active: view.autoSaveInterval === item.value }"
+            @click="setAutoSaveInterval(item.value)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+        <p class="group-hint">
+          {{ autoSaveHint }}
+        </p>
+      </div>
     </div>
 
     <footer class="modal-foot">
@@ -170,8 +204,8 @@ const mathHint = computed(
 
 <style scoped>
 .modal-body {
-  padding: 16px 22px;
-  max-height: 480px;
+  padding: 18px 26px;
+  max-height: min(620px, calc(100vh - 180px));
   overflow-y: auto;
 }
 .group {
@@ -205,6 +239,7 @@ const mathHint = computed(
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
+  white-space: nowrap;
   transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
 }
 .segment-btn:hover {

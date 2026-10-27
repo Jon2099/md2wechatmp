@@ -1,13 +1,14 @@
 import { parseFragment, serializeOuter } from 'parse5'
 import type { MediaType } from '@shared/models/snapshot'
 import type { MdNode } from '../pipeline/types'
+import { parseInlineTextStyle, type InlineTextStyle } from '@shared/inline-text-style'
 
 export type RawImageKind = 'img' | 'svg' | 'picture' | 'video' | 'iframe'
 
 export type RawInline =
   | { kind: 'text'; value: string }
   | { kind: 'br' }
-  | { kind: 'wrap'; tag: 'sub' | 'sup' | 'u'; children: RawInline[] }
+  | { kind: 'wrap'; tag: 'sub' | 'sup' | 'u' | 'span'; children: RawInline[]; style?: InlineTextStyle }
   | { kind: 'image'; src: string | null; imageKind: RawImageKind; mediaType: MediaType; alt?: string; svgSource?: string }
 
 export interface RawHtmlResult {
@@ -15,7 +16,7 @@ export interface RawHtmlResult {
   blocked: string[]
 }
 
-const ALLOWED_INLINE = new Set(['sub', 'sup', 'u'])
+const ALLOWED_INLINE = new Set(['sub', 'sup', 'u', 'span'])
 
 interface AnyNode {
   nodeName: string
@@ -82,7 +83,8 @@ function walkNodes(nodes: AnyNode[], blocked: string[]): RawInline[] {
     if (node.tagName && ALLOWED_INLINE.has(node.tagName)) {
       result.push({
         kind: 'wrap',
-        tag: node.tagName as 'sub' | 'sup' | 'u',
+        tag: node.tagName as 'sub' | 'sup' | 'u' | 'span',
+        style: node.tagName === 'span' ? parseInlineTextStyle(attrOf(node, 'style') ?? '') : undefined,
         children: walkNodes(node.childNodes ?? [], blocked),
       })
       continue

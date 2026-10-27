@@ -74,7 +74,7 @@ function onReset(): void {
       <header class="editor-head">
         <div>
           <h2 id="theme-editor-title" class="editor-title">{{ themeId ? '编辑自定义主题' : '创建自定义主题' }}</h2>
-          <p class="editor-subtitle">自由定制多维度配色、字体、字号、间距与组件样式，自动本地持久化保存</p>
+          <p class="editor-subtitle">自由定制多维度配色、字号、间距与组件样式，自动本地持久化保存</p>
         </div>
         <button type="button" class="close-btn" aria-label="关闭" @click="emit('close')">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -87,7 +87,7 @@ function onReset(): void {
         <div class="editor-controls">
           <nav class="nav-tabs">
             <button type="button" class="tab-btn" :class="{ active: activeTab === 'colors' }" @click="activeTab = 'colors'">基础与色彩</button>
-            <button type="button" class="tab-btn" :class="{ active: activeTab === 'typography' }" @click="activeTab = 'typography'">字体与段落</button>
+            <button type="button" class="tab-btn" :class="{ active: activeTab === 'typography' }" @click="activeTab = 'typography'">字号与段落</button>
             <button type="button" class="tab-btn" :class="{ active: activeTab === 'elements' }" @click="activeTab = 'elements'">标题与组件</button>
           </nav>
 

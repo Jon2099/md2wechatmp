@@ -116,6 +116,7 @@ onUnmounted(() => {
         <section class="help-section tips-section">
           <h3 class="section-title">实用排版技巧</h3>
           <ul class="tips-list">
+            <li><strong>局部文字样式</strong>：在右侧预览中选中文字，用浮动工具条修改颜色或字号并点击「应用」。修改会同步回左侧 Markdown，保存和复制时均会保留；文字字形使用主题默认字体。选中后按 Tab 可进入工具条，Esc 关闭。</li>
             <li><strong>数学公式</strong>：默认生成清晰的矢量 SVG，公式在手机和电脑端放大均不失真。</li>
             <li><strong>超宽表格</strong>：若手机上表格容易被切断，在「选项」中开启「转为文字卡片」更易读。</li>
             <li><strong>链接收纳</strong>：微信正文不支持点开外部网址，工具会自动收录为文末「参考链接」。</li>

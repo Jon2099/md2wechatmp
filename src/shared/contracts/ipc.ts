@@ -85,6 +85,7 @@ export interface SettingsPatch {
   previewWidth?: PreviewWidth
   lastFilePath?: string | null
   dismissHelpOnStartup?: boolean
+  autoSaveInterval?: number
 }
 
 export interface DocExternalChangePayload {

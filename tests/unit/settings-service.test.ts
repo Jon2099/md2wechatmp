@@ -56,3 +56,11 @@ it('保存失败不污染缓存，后续保存能够继续', async () => {
   const saved = await service.saveSettings({ previewWidth: 430 })
   expect(saved).toMatchObject({ themeId: 'ocean-blue', previewWidth: 430 })
 })
+
+it('支持保存与更新定时自动保存间隔，并提供默认 3 秒', async () => {
+  const service = await import('../../src/main/services/settings-service')
+  expect((await service.loadSettings()).autoSaveInterval).toBe(3)
+  const updated = await service.saveSettings({ autoSaveInterval: 120 })
+  expect(updated.autoSaveInterval).toBe(120)
+  expect((await service.loadSettings()).autoSaveInterval).toBe(120)
+})

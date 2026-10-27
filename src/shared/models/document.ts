@@ -9,6 +9,7 @@ export interface DocumentState {
   savedRevision: number
   dirty: boolean
   externalChanged: boolean
+  hasFilePath?: boolean
 }
 
 export interface OpenedDocument extends DocumentState {
@@ -37,4 +38,5 @@ export interface AppSettings {
   previewWidth: PreviewWidth
   lastFilePath: string | null
   dismissHelpOnStartup?: boolean
+  autoSaveInterval?: number
 }

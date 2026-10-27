@@ -59,10 +59,13 @@ export function createContext(
     placeholders: [],
     links: [],
     footnotes: [],
+    inlineColors: new Set(),
+    inlineFontSizes: new Set(),
     counters: {
       images: 0,
       imageBytes: 0,
       imageSourceChars: 0,
+      inlineMarkupChars: 0,
       unnamedByKind: { unnamed: 0, data: 0, svg: 0 },
       unnamedTotalByKind: { unnamed: 0, data: 0, svg: 0 },
       link: 0,

@@ -6,6 +6,7 @@ import type { ThemeId, ThemeProfile, ThemeSummary } from '@shared/models/theme'
 import type { Diagnostic } from '@shared/models/diagnostic'
 import type { CompileEvent, Md2wBridge } from '@shared/contracts/ipc'
 import { DEFAULT_COMPILE_OPTIONS } from '@shared/models/compile'
+import { applyInlineTextStyle, type InlineTextStyle, type SourceTextSelection } from '@shared/inline-text-style'
 
 type Tone = 'info' | 'ok' | 'warn' | 'error'
 type DocumentAction = 'new' | 'open' | 'close'
@@ -29,6 +30,9 @@ interface State {
   docId: string | null
   fileName: string
   pathLabel: string
+  hasFilePath: boolean
+  autoSaveInterval: number
+  lastAutoSavedAt: number | null
   revision: number
   text: string
   savedText: string | null
@@ -71,6 +75,9 @@ const state = reactive<State>({
   docId: null,
   fileName: '未命名.md',
   pathLabel: '未命名.md',
+  hasFilePath: false,
+  autoSaveInterval: 3,
+  lastAutoSavedAt: null,
   revision: 0,
   text: '',
   savedText: '',
@@ -103,6 +110,7 @@ const state = reactive<State>({
 let toastSeq = 0
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 let compileTimer: ReturnType<typeof setTimeout> | null = null
+let autoSaveTimer: ReturnType<typeof setInterval> | null = null
 let copyResetTimer: ReturnType<typeof setTimeout> | null = null
 let activeTaskId: string | null = null
 let compileGeneration = 0
@@ -326,6 +334,18 @@ function onTextChange(value: string): void {
   scheduleCompile()
 }
 
+export function formatPreviewSelection(payload: { snapshotId: string; ranges: SourceTextSelection[]; style: InlineTextStyle }): void {
+  if (!snapshotFresh.value || state.pending || state.busy || state.confirmation || payload.snapshotId !== state.snapshot?.id) {
+    notify('warn', '预览内容已更新，请重新选择文字。')
+    return
+  }
+  try {
+    onTextChange(applyInlineTextStyle(state.text, payload.ranges, payload.style))
+  } catch (error) {
+    notify('warn', error instanceof Error ? error.message : '文字样式修改失败，请重新选择。')
+  }
+}
+
 export function setTheme(themeId: ThemeId): void {
   if (state.themeId === themeId) return
   state.themeId = themeId
@@ -365,6 +385,9 @@ function adoptDocument(document: OpenedDocument): void {
   state.docId = document.id
   state.fileName = document.fileName
   state.pathLabel = document.pathLabel
+  state.hasFilePath = typeof document.hasFilePath === 'boolean'
+    ? document.hasFilePath
+    : (Boolean(document.pathLabel) && document.pathLabel !== '未命名.md')
   state.revision = document.revision
   state.text = document.text
   state.savedText = document.savedText ?? (document.dirty ? null : document.text)
@@ -401,7 +424,7 @@ export async function openFile(): Promise<void> {
   })
 }
 
-export async function save(saveAs = false): Promise<void> {
+export async function save(saveAs = false, options?: { silent?: boolean }): Promise<void> {
   if (!state.docId || state.busy || state.confirmation) return
   const source = await flushSource()
   if (!source) return
@@ -411,7 +434,7 @@ export async function save(saveAs = false): Promise<void> {
     : await bridge.saveDocument({ docId: source.docId, revision: source.revision })
   if (state.docId !== source.docId) return
   if (!result.ok) {
-    notify('error', result.message)
+    if (!options?.silent) notify('error', result.message)
     return
   }
   if (!result.data) return
@@ -419,6 +442,7 @@ export async function save(saveAs = false): Promise<void> {
   const locationChanged = state.pathLabel !== result.data.pathLabel
   state.fileName = result.data.fileName
   state.pathLabel = result.data.pathLabel
+  state.hasFilePath = true
   state.revision = Math.max(state.revision, result.data.revision)
   state.savedRevision = result.data.revision
   state.savedText = source.text
@@ -426,7 +450,50 @@ export async function save(saveAs = false): Promise<void> {
     state.compiledSeq = -1
     scheduleCompile(0)
   }
-  notify('ok', `已保存 ${result.data.fileName}`)
+  if (!options?.silent) {
+    notify('ok', `已保存 ${result.data.fileName}`)
+  } else {
+    state.lastAutoSavedAt = Date.now()
+  }
+}
+
+export async function triggerAutoSave(): Promise<void> {
+  if (!state.ready || state.busy || state.confirmation || state.externalConflict) return
+  if (!dirty.value) return
+  if (state.hasFilePath) {
+    await save(false, { silent: true })
+  } else {
+    await flushSource()
+    state.lastAutoSavedAt = Date.now()
+  }
+}
+
+function restartAutoSaveTimer(): void {
+  if (autoSaveTimer) {
+    clearInterval(autoSaveTimer)
+    autoSaveTimer = null
+  }
+  if (state.autoSaveInterval > 0) {
+    autoSaveTimer = setInterval(() => {
+      void triggerAutoSave()
+    }, state.autoSaveInterval * 1000)
+  }
+}
+
+export function setAutoSaveInterval(interval: number): void {
+  if (state.autoSaveInterval === interval) return
+  state.autoSaveInterval = interval
+  restartAutoSaveTimer()
+  void readBridge()
+    .updateSettings({ autoSaveInterval: interval })
+    .then((result) => {
+      if (!result.ok) notify('warn', result.message)
+    })
+}
+
+export function toggleAutoSave(): void {
+  const next = state.autoSaveInterval > 0 ? 0 : 3
+  setAutoSaveInterval(next)
 }
 
 export async function requestClose(): Promise<void> {
@@ -606,6 +673,7 @@ export function handleMenuAction(action: string): void {
   else if (action === 'file:open') void openFile()
   else if (action === 'file:save') void save(false)
   else if (action === 'file:save-as') void save(true)
+  else if (action === 'file:toggle-autosave') void toggleAutoSave()
   else if (action === 'file:export-html') void exportHtml(true)
   else if (action === 'edit:recompile') void compileNow()
   else if (action === 'edit:copy-wechat') void copyToWechat()
@@ -684,6 +752,7 @@ export async function init(): Promise<void> {
     return
   }
   adoptDocument(documentResult.data)
+  restartAutoSaveTimer()
   state.ready = true
 }
 
@@ -714,6 +783,8 @@ function applySettings(settings: AppSettings): void {
   state.options = { ...settings.options }
   state.previewWidth = settings.previewWidth
   state.dismissHelpOnStartup = Boolean(settings.dismissHelpOnStartup)
+  state.autoSaveInterval = typeof settings.autoSaveInterval === 'number' ? settings.autoSaveInterval : 3
+  restartAutoSaveTimer()
 }
 
 export function dispose(): void {
@@ -724,9 +795,11 @@ export function dispose(): void {
   if (compileTimer) clearTimeout(compileTimer)
   if (toastTimer) clearTimeout(toastTimer)
   if (copyResetTimer) clearTimeout(copyResetTimer)
+  if (autoSaveTimer) clearInterval(autoSaveTimer)
   compileTimer = null
   toastTimer = null
   copyResetTimer = null
+  autoSaveTimer = null
   activeTaskId = null
   compileGeneration += 1
   activeCompile = null

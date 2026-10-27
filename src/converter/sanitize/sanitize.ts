@@ -3,6 +3,7 @@ import type { ThemeProfile } from '@shared/models/theme'
 import { filterStyle, normalizeFontFamily } from '../styles/css-guard'
 import { SVG_ALLOWED_ATTRS, SVG_TAGS, isSafeSvgPaint } from '../html/svg-policy'
 import { IMAGE_ALLOWED_ATTRS, isSafeImageSrc } from '@shared/image-policy'
+import { type SourceTextMapping } from '@shared/inline-text-style'
 
 export interface SanitizeReport {
   droppedTags: string[]
@@ -11,6 +12,7 @@ export interface SanitizeReport {
 
 export interface SanitizeResult {
   html: string
+  previewHtml: string
   text: string
   report: SanitizeReport
 }
@@ -120,7 +122,7 @@ function fontSet(theme: ThemeProfile): Set<string> {
   )
 }
 
-function filterAttrs(node: AnyNode, fonts: Set<string>, report: SanitizeReport): Array<{ name: string; value: string }> {
+function filterAttrs(node: AnyNode, fonts: Set<string>, report: SanitizeReport, mappings: SourceTextMapping[]): Array<{ name: string; value: string }> {
   const tagName = (node.tagName ?? '').toLowerCase()
   const isSvg = SVG_TAGS.has(tagName)
   const allowedSvgAttrs = isSvg ? SVG_ALLOWED_ATTRS[tagName] : null
@@ -136,6 +138,8 @@ function filterAttrs(node: AnyNode, fonts: Set<string>, report: SanitizeReport):
       if (filtered.style) {
         result.push({ name: 'style', value: filtered.style })
       }
+    } else if (tagName === 'span' && nameLower === 'data-md2w-source' && /^\d+$/.test(attr.value) && mappings[Number(attr.value)]) {
+      result.push({ name: 'data-md2w-source', value: JSON.stringify(mappings[Number(attr.value)]) })
     } else if (allowedSvgAttrs && allowedSvgAttrs.has(nameLower)) {
       if ((nameLower === 'fill' || nameLower === 'stroke') && !isSafeSvgPaint(attr.value)) continue
       result.push(attr)
@@ -149,7 +153,7 @@ function filterAttrs(node: AnyNode, fonts: Set<string>, report: SanitizeReport):
   return result
 }
 
-function sanitizeChildren(parent: AnyNode, fonts: Set<string>, report: SanitizeReport): void {
+function sanitizeChildren(parent: AnyNode, fonts: Set<string>, report: SanitizeReport, mappings: SourceTextMapping[]): void {
   const next: AnyNode[] = []
   for (const child of parent.childNodes ?? []) {
     if (child.nodeName === '#comment') continue
@@ -167,12 +171,12 @@ function sanitizeChildren(parent: AnyNode, fonts: Set<string>, report: SanitizeR
       continue
     }
     if (!ALLOWED_TAGS.has(tag) || UNWRAP.has(tag)) {
-      sanitizeChildren(child, fonts, report)
+      sanitizeChildren(child, fonts, report, mappings)
       next.push(...(child.childNodes ?? []))
       continue
     }
-    child.attrs = filterAttrs(child, fonts, report)
-    sanitizeChildren(child, fonts, report)
+    child.attrs = filterAttrs(child, fonts, report, mappings)
+    sanitizeChildren(child, fonts, report, mappings)
     next.push(child)
   }
   parent.childNodes = next
@@ -187,14 +191,21 @@ function collectText(node: AnyNode, out: string[]): void {
   for (const child of node.childNodes ?? []) collectText(child, out)
 }
 
-export function sanitizeFragment(html: string, theme: ThemeProfile): SanitizeResult {
+export function sanitizeFragment(html: string, theme: ThemeProfile, mappings: SourceTextMapping[] = []): SanitizeResult {
   const fragment = parseFragment(html) as unknown as AnyNode
   const report: SanitizeReport = { droppedTags: [], droppedStyles: [] }
-  sanitizeChildren(fragment, fontSet(theme), report)
+  sanitizeChildren(fragment, fontSet(theme), report, mappings)
+  const previewHtml = serialize(fragment as never)
+  const stripSourceMarkers = (node: AnyNode): void => {
+    if (node.attrs) node.attrs = node.attrs.filter(attr => attr.name !== 'data-md2w-source')
+    node.childNodes?.forEach(stripSourceMarkers)
+  }
+  stripSourceMarkers(fragment)
   const textParts: string[] = []
   collectText(fragment, textParts)
   return {
     html: serialize(fragment as never),
+    previewHtml,
     text: textParts.join(''),
     report,
   }

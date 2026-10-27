@@ -32,7 +32,7 @@ const THEME_TAGS: Record<ThemeId, { tag: string; sample: string }> = {
     <header class="modal-head">
       <div>
         <h2 id="theme-modal-title" class="modal-title">排版主题</h2>
-        <p class="modal-subtitle">切换文章配色与字体风格，正文内容与结构自动保留</p>
+        <p class="modal-subtitle">切换文章配色与排版风格，正文内容与结构自动保留</p>
       </div>
       <div class="head-actions">
         <button type="button" class="btn-create-theme" @click="emit('create')">

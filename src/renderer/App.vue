@@ -25,6 +25,7 @@ import {
   dismissToast,
   dispose,
   exportHtml,
+  formatPreviewSelection,
   ignoreExternalConflict,
   init,
   newDocument,
@@ -40,6 +41,7 @@ import {
   snapshotFresh,
   statusText,
   toggleAboutModal,
+  toggleAutoSave,
   toggleDiagnostics,
   toggleHelpModal,
   toggleSettings,
@@ -62,6 +64,8 @@ const currentThemeName = computed(() => {
 })
 
 const stats = computed(() => view.snapshot?.stats ?? null)
+const previewEditingDisabled = computed(() => view.busy || !!view.confirmation || view.showHelpModal || view.showAboutModal ||
+  view.showSettings || view.showDiagnostics || view.showThemeModal || view.showThemeEditorModal)
 
 function jumpToLine(line: number): void {
   editorRef.value?.revealLine(line)
@@ -179,10 +183,12 @@ onBeforeUnmount(() => {
       :themes="view.themes"
       :active-theme-id="view.themeId"
       :preview-width="view.previewWidth"
+      :auto-save-interval="view.autoSaveInterval"
       @new="newDocument()"
       @open="openFile()"
       @save="save(false)"
       @save-as="save(true)"
+      @toggle-auto-save="toggleAutoSave()"
       @export="exportHtml(true)"
       @recompile="compileNow()"
       @copy="copyToWechat()"
@@ -225,7 +231,10 @@ onBeforeUnmount(() => {
       <section class="editor-col">
         <header class="col-head">
           <span class="col-title">Markdown 源文</span>
-          <span class="col-shortcut">Ctrl + Enter 立即转换</span>
+          <div class="col-head-right">
+            <span class="col-tip">提示：可在右侧预览中选中文字，修改颜色和字号</span>
+            <span class="col-shortcut">Ctrl + Enter 立即转换</span>
+          </div>
         </header>
 
         <div class="editor-wrap">
@@ -245,6 +254,9 @@ onBeforeUnmount(() => {
           :width="view.previewWidth"
           :pending="view.pending"
           :stale="!snapshotFresh"
+          :source="view.text"
+          :disabled="previewEditingDisabled"
+          @format="formatPreviewSelection"
           @update:width="(width: PreviewWidth) => setPreviewWidth(width)"
         />
       </section>
@@ -261,8 +273,11 @@ onBeforeUnmount(() => {
       :theme-accent="activeAccent"
       :can-copy="canCopy"
       :copy-state="view.copyState"
+      :auto-save-interval="view.autoSaveInterval"
+      :last-auto-saved-at="view.lastAutoSavedAt"
       @toggle-diagnostics="toggleDiagnostics()"
       @open-theme="toggleThemeModal(true)"
+      @open-settings="toggleSettings(true)"
       @copy="copyToWechat()"
       @update:include-title="(value: boolean) => setOption('includeTitle', value)"
     />
@@ -419,6 +434,15 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: #334155;
   letter-spacing: 0.01em;
+}
+.col-head-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.col-tip {
+  font-size: 11px;
+  color: #94a3b8;
 }
 .col-shortcut {
   font-size: 11px;

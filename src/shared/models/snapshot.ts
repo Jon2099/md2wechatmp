@@ -51,6 +51,8 @@ export interface ContentSnapshot {
   options: CompileOptions
   status: 'ok' | 'blocked'
   html: string
+  /** Sanitized preview with source locations; never copied or exported. */
+  previewHtml?: string
   plainText: string
   diagnostics: Diagnostic[]
   meta: CompileMeta

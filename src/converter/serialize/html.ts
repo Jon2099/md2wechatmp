@@ -1,4 +1,5 @@
 import type { HElement, HNode } from '../html/build-hast'
+import type { SourceTextMapping } from '@shared/inline-text-style'
 
 const VOID_TAGS = new Set(['br', 'hr', 'img', 'input'])
 
@@ -10,13 +11,19 @@ export function escapeAttr(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 }
 
-export function serializeHast(node: HNode): string {
-  if (node.type === 'text') return escapeText(node.value)
+export function serializeHast(node: HNode, mappings?: SourceTextMapping[]): string {
+  if (node.type === 'text') {
+    if (node.source && mappings) {
+      const id = mappings.push(node.source) - 1
+      return `<span style="display:inline" data-md2w-source="${id}">${escapeText(node.value)}</span>`
+    }
+    return escapeText(node.value)
+  }
   if (node.type === 'raw') return node.value
-  return serializeElement(node)
+  return serializeElement(node, mappings)
 }
 
-function serializeElement(node: HElement): string {
+function serializeElement(node: HElement, mappings?: SourceTextMapping[]): string {
   const attrs: string[] = []
   for (const name of ['src', 'alt', 'title', 'referrerpolicy'] as const) {
     const value = node.properties[name]
@@ -31,7 +38,7 @@ function serializeElement(node: HElement): string {
   }
   const open = `<${node.tagName}${attrs.join('')}>`
   if (VOID_TAGS.has(node.tagName)) return open
-  return `${open}${node.children.map((child) => serializeHast(child)).join('')}</${node.tagName}>`
+  return `${open}${node.children.map((child) => serializeHast(child, mappings)).join('')}</${node.tagName}>`
 }
 
 export function serializeNodes(nodes: HNode[]): string {

@@ -25,6 +25,7 @@ import { checkInvariants } from '../validate/invariants'
 import { collectStats } from '../serialize/stats'
 import { createDiagnosticSink } from './context'
 import { CONVERTER_VERSION, COMPAT_VERSION } from '@shared/versions'
+import type { SourceTextMapping } from '@shared/inline-text-style'
 
 function hashOf(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex')
@@ -90,9 +91,10 @@ export async function runPipeline(input: CompileInput, deps: ConverterDeps): Pro
   }
 
   const plainText = serializePlainText(hast)
-  const rawHtml = serializeHast(hast)
+  const mappings: SourceTextMapping[] = []
+  const rawHtml = serializeHast(hast, mappings)
   const inlined = deps.inliner.inline(rawHtml, css)
-  const sanitized = sanitizeFragment(inlined, ctx.theme)
+  const sanitized = sanitizeFragment(inlined, ctx.theme, mappings)
 
   if (sanitized.report.droppedTags.length > 0) {
     ctx.diagnostics.push({
@@ -110,7 +112,9 @@ export async function runPipeline(input: CompileInput, deps: ConverterDeps): Pro
     plainText,
     theme: ctx.theme,
     placeholders: ctx.placeholders.map((record) => record.text),
-    sourceChars: Math.max(0, ctx.source.length - ctx.counters.imageSourceChars - omittedTitleChars),
+    sourceChars: Math.max(0, ctx.source.length - ctx.counters.imageSourceChars - ctx.counters.inlineMarkupChars - omittedTitleChars),
+    inlineColors: Array.from(ctx.inlineColors),
+    inlineFontSizes: Array.from(ctx.inlineFontSizes),
   })
 
   const diagnostics = [...ctx.diagnostics.list(), ...invariantDiagnostics]
@@ -125,6 +129,7 @@ export async function runPipeline(input: CompileInput, deps: ConverterDeps): Pro
     options: ctx.options,
     status,
     html: sanitized.html,
+    previewHtml: sanitized.previewHtml,
     plainText,
     diagnostics,
     meta: ctx.meta,

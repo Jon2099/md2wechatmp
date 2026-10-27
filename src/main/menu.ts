@@ -34,6 +34,10 @@ export function setupApplicationMenu(): void {
           accelerator: 'CmdOrCtrl+Shift+S',
           click: () => send('file:save-as'),
         },
+        {
+          label: '自动保存',
+          click: () => send('file:toggle-autosave'),
+        },
         { type: 'separator' },
         {
           label: '导出 HTML... (&E)',

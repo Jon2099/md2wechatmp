@@ -16,7 +16,7 @@ app.on('browser-window-created', (_event, win) => {
 })
 // Keep the test harness alive after the production close path finishes.
 app.on('before-quit', (event) => event.preventDefault())
-const timeout = setTimeout(() => { console.error('ELECTRON_REGRESSION timeout'); app.exit(1) }, 45000)
+const timeout = setTimeout(() => { console.error('ELECTRON_REGRESSION timeout'); app.exit(1) }, 60000)
 const pause = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 async function until(fn, label) {
   const deadline = Date.now() + 12000
@@ -45,6 +45,8 @@ app.whenReady().then(async () => {
     return content?.textContent ?? null
   })()`)
   await until(() => js('Boolean(window.md2w && document.querySelector(".cm-content") && document.querySelector(".status-text")?.textContent !== "正在初始化…")'), 'renderer ready')
+  await js('document.querySelector("#help-modal-title")?.closest(".modal-card")?.querySelector(".done-btn")?.click()')
+  await until(() => js('!document.querySelector("#help-modal-title")'), 'dismiss startup help')
   await js('window.confirm = () => { throw new Error("Native confirm must not be used") }; window.__oldEditor = document.querySelector(".cm-editor")')
   await js('document.querySelector(".cm-content").focus()')
   await main.webContents.insertText('FILE A PRIVATE CONTENT')
@@ -147,7 +149,8 @@ app.whenReady().then(async () => {
     const select = document.querySelector(${JSON.stringify(selector)});
     select.selectedIndex = ${index}; select.dispatchEvent(new Event('change', { bubbles: true }));
   })()`)
-  await clickButton('字体与段落')
+  await clickButton('字号与段落')
+  assert.equal(await js('[...document.querySelectorAll(".tab-content label")].some(label => /字体/.test(label.textContent))'), false)
   // Use the visible field label rather than positional selectors shared by rows.
   await js(`(() => {
     const select = [...document.querySelectorAll('.tab-content label')].find(x => x.textContent.includes('首行缩进')).querySelector('select');
@@ -231,23 +234,130 @@ app.whenReady().then(async () => {
   }
   await editSavedTheme()
   const previousCompiles = await js('window.__compileCount')
-  await editThemeField('.color-grid .color-item:nth-child(2) .hex-input', '#123456')
+  assert.equal(await js('document.querySelector(".color-grid .color-item:nth-child(2) .hex-input").readOnly'), true)
+  assert.equal(await js('document.querySelector(".color-grid .color-item:nth-child(2) .hex-input").value'), '#2d2d2d')
+  await editThemeField('.color-grid .color-item:nth-child(3) .hex-input', '#123456')
   await clickButton('保存并设为当前主题')
-  await until(() => js(`window.__compileCount > ${previousCompiles} && window.__compile?.html.includes("#123456")`), 'editing active theme recompiles same ID')
+  await until(() => js(`window.__compileCount > ${previousCompiles}`), 'editing active theme recompiles same ID')
   savedThemes = JSON.parse(await fs.readFile(themeFile, 'utf8'))
   assert.equal(savedThemes.length, 1)
   assert.equal(savedThemes[0].id, customId)
-  assert.equal(savedThemes[0].colors.text, '#123456')
+  assert.equal(savedThemes[0].colors.text, '#2d2d2d')
+  assert.equal(savedThemes[0].colors.heading, '#123456')
   await editSavedTheme()
   await clickButton('另存为新主题')
   await until(() => js('!document.querySelector("#theme-editor-title")'), 'save as new theme')
   savedThemes = JSON.parse(await fs.readFile(themeFile, 'utf8'))
   assert.equal(savedThemes.length, 2)
   assert.notEqual(savedThemes[0].id, savedThemes[1].id)
-  assert.equal(savedThemes[1].colors.text, '#123456')
+  assert.equal(savedThemes[1].colors.text, '#2d2d2d')
+  assert.equal(savedThemes[1].colors.heading, '#123456')
   const loadedTheme = await js(`window.md2w.getTheme(${JSON.stringify(savedThemes[1].id)})`)
   assert.equal(loadedTheme.ok && loadedTheme.data.colors.accent, '#07c160')
   console.log('PASS real theme editor: reactive draft saves, duplicate click guarded, same-ID edits recompile, save-as-new persists and reloads')
+
+  // Exercise real DOM selections inside the script-disabled iframe, then save/reopen source.
+  const formatSample = '重复文字。第二次 **重复文字** 和 [链接文字](https://example.com)。\n\n第二段文字。\n\n`const n = 1`\n\n' +
+    Array.from({ length: 35 }, (_, index) => `滚动验证第${index + 1}段文字。`).join('\n\n')
+  const formatFile = path.join(dataDir, 'formatted.md')
+  await fs.writeFile(formatFile, formatSample)
+  dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [formatFile] })
+  await clickButton('文件')
+  await js('Array.from(document.querySelectorAll("button")).find(x => x.textContent.includes("打开文件")).click()')
+  await until(() => js('Boolean(window.__compile?.plainText.includes("第二段文字") && document.querySelector(".preview-frame").contentDocument?.querySelector("[data-md2w-source]"))'), 'editable preview source map')
+  await js(`window.__selectPreview = (value, occurrence = 0, from = 0, to) => {
+    const frame = document.querySelector('.preview-frame'), doc = frame.contentDocument;
+    const walker = doc.createTreeWalker(doc.querySelector('#preview-phone'), 4); const matches = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node.textContent.startsWith(value)) matches.push(node);
+    const node = matches[occurrence]; if (!node) throw new Error('Missing preview text: ' + value);
+    const range = doc.createRange(); range.setStart(node, from); range.setEnd(node, to ?? node.textContent.length);
+    frame.focus(); const selected = doc.getSelection(); selected.removeAllRanges(); selected.addRange(range);
+    doc.dispatchEvent(new Event('pointerup'));
+  }; window.__selectPreview('重复文字', 1, 1, 4);`)
+  await until(() => js('Boolean(document.querySelector(".selection-toolbar"))'), 'floating toolbar')
+  assert.equal(await js('document.querySelector(".preview-frame").sandbox.contains("allow-scripts")'), false)
+  assert.equal(await js('(() => { const b = document.querySelector(".selection-toolbar").getBoundingClientRect(); return b.left >= 0 && b.right <= innerWidth && b.top >= 0 && b.bottom <= innerHeight; })()'), true)
+  assert.equal(await js('Boolean(document.querySelector(".font-select, .font-refresh-btn, .font-download-links"))'), false)
+  await js(`(() => {
+    const color = document.querySelector('.selection-toolbar input'); color.value = '#e53935'; color.dispatchEvent(new Event('input', {bubbles:true}));
+    const size = document.querySelector('.selection-toolbar .size-select'); size.value = '20px'; size.dispatchEvent(new Event('change', {bubbles:true}));
+  })()`)
+  await pause(100)
+  const selectionScreenshot = path.join(dataDir, 'preview-selection-toolbar.png')
+  await fs.writeFile(selectionScreenshot, (await main.capturePage(undefined, { stayHidden: true, stayAwake: true })).toPNG())
+  console.log('SELECTION_SCREENSHOT ' + selectionScreenshot)
+  await js('document.querySelector(".selection-apply").click()')
+  await until(() => js('window.__compile?.html.includes("color:#e53935") && !document.querySelector(".selection-toolbar")'), 'format selection and recompile')
+  const formattedSource = await editorText()
+  assert.equal(formattedSource.startsWith('重复文字。第二次 **重<span style="color:#e53935;font-size:20px">复文字</span>**'), true)
+  assert.equal(await js('window.__compile.html.includes("data-md2w-")'), false)
+  assert.equal(await js('window.__compile.status'), 'ok')
+  await until(() => js('(() => { const doc = document.querySelector(".preview-frame").contentDocument; const text = [...doc.querySelectorAll("[data-md2w-source]")].find(n => n.textContent === "复文字"); return text && doc.defaultView.getComputedStyle(text).color === "rgb(229, 57, 53)"; })()'), 'local style appears in refreshed preview')
+  // Undo/redo must treat a preview formatting operation as one source edit.
+  await js('document.querySelector(".cm-content").focus()')
+  press('Z', ['control'])
+  await until(async () => (await editorText()) === formatSample.replace(/\n/g, ''), 'undo preview format')
+  press('Y', ['control'])
+  await until(async () => (await editorText()) === formattedSource, 'redo preview format')
+  await until(() => js('Boolean(window.__compile?.html.includes("color:#e53935") && !document.querySelector(".preview-flag") && document.querySelector(".preview-frame").contentDocument?.querySelector("[data-md2w-source]"))'), 'redo refreshed preview')
+  await js('window.__selectPreview("第二段文字")')
+  await until(() => js('Boolean(document.querySelector(".selection-toolbar"))'), 'select by keyboard')
+  await js('document.querySelector(".preview-frame").contentDocument.dispatchEvent(new KeyboardEvent("keydown", {key:"Tab",bubbles:true}))')
+  assert.equal(await js('document.querySelector(".selection-toolbar").contains(document.activeElement)'), true)
+  await js('document.activeElement.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape",bubbles:true}))')
+  await until(() => js('!document.querySelector(".selection-toolbar")'), 'Escape dismisses selection toolbar')
+  await js('window.__selectPreview("const n = 1")')
+  await pause(70)
+  assert.equal(await js('Boolean(document.querySelector(".selection-toolbar"))'), false, 'inline code cannot be formatted')
+  dialog.showSaveDialog = async () => ({ canceled: false, filePath: formatFile })
+  await js('document.querySelector(".cm-content").focus()')
+  press('S', ['control'])
+  await until(async () => fsSync.existsSync(formatFile) && (await fs.readFile(formatFile, 'utf8')).includes('color:#e53935'), 'formatted Markdown saved')
+  dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [formatFile] })
+  await clickButton('文件')
+  await js('Array.from(document.querySelectorAll("button")).find(x => x.textContent.includes("打开文件")).click()')
+  await until(() => js('window.__compile?.revision === 1 && window.__compile.html.includes("color:#e53935")'), 'format preserved after reopening Markdown')
+  await until(() => js('Boolean(!document.querySelector(".preview-flag") && document.querySelector(".preview-frame").contentDocument?.querySelector("[data-md2w-source]"))'), 'reopened editable preview')
+  await js(`(() => {
+    const frame = document.querySelector('.preview-frame'), doc = frame.contentDocument;
+    const nodes = [...doc.querySelectorAll('[data-md2w-source]')];
+    const range = doc.createRange(); range.setStart(nodes.find(n => n.textContent.startsWith('重复文字。')).firstChild, 2);
+    range.setEnd(nodes.find(n => n.textContent === '复文字').firstChild, 2);
+    frame.focus(); doc.getSelection().removeAllRanges(); doc.getSelection().addRange(range);
+    doc.dispatchEvent(new Event('pointerup'));
+  })()`)
+  await until(() => js('Boolean(document.querySelector(".selection-toolbar"))'), 'selection spans ordinary, strong and already formatted text')
+  await js('document.querySelector(".selection-close").click()')
+  const formatClipboard = { write: clipboard.write, read: clipboard.read, readText: clipboard.readText }
+  let formatItems = []
+  const formatPayload = async type => { const payload = await formatItems[0].getType(type); return typeof payload === 'string' ? payload : payload.text() }
+  try {
+    clipboard.write = async items => { formatItems = items }
+    clipboard.read = async () => formatItems
+    clipboard.readText = async () => formatPayload('text/plain')
+    const copied = await js('window.md2w.copySnapshot({ snapshotId: window.__compile.id, expectedRevision: window.__compile.revision })')
+    assert.equal(copied.ok && copied.data.verified, true)
+    assert.match(await formatPayload('text/html'), /color:#e53935/)
+    assert.match(await formatPayload('text/html'), /font-size:20px/)
+    assert.doesNotMatch(await formatPayload('text/html'), /data-md2w-|selection-toolbar/)
+  } finally { Object.assign(clipboard, formatClipboard) }
+  await js(`(() => {
+    const doc = document.querySelector('.preview-frame').contentDocument;
+    [...doc.querySelectorAll('[data-md2w-source]')].find(n => n.textContent === '滚动验证第35段文字。').scrollIntoView({block:'center'});
+  })()`)
+  await pause(60)
+  const formatScrollTop = await js('document.querySelector(".preview-frame").contentDocument.scrollingElement.scrollTop')
+  assert.equal(formatScrollTop > 0, true)
+  await js('window.__selectPreview("滚动验证第35段文字")')
+  await until(() => js('Boolean(document.querySelector(".selection-toolbar"))'), 'format at scrolled position')
+  await js('(() => { const color = document.querySelector(".selection-toolbar input"); color.value = "#0a7f55"; color.dispatchEvent(new Event("input", {bubbles:true})); })()')
+  await js('document.querySelector(".selection-apply").click()')
+  await until(() => js('window.__compile?.html.includes("color:#0a7f55") && !document.querySelector(".preview-flag")'), 'scrolled formatting compiled')
+  await until(() => js(`Math.abs(document.querySelector('.preview-frame')?.contentDocument?.scrollingElement?.scrollTop - ${formatScrollTop}) < 5`), 'preserve preview reading position after formatting')
+  await js('document.querySelector(".cm-content").focus()')
+  press('S', ['control'])
+  await until(async () => (await fs.readFile(formatFile, 'utf8')).includes('color:#0a7f55'), 'save scrolled formatting')
+  console.log('PASS preview selection: floating toolbar, color/size, repeated text, source synchronization, undo/redo, keyboard, code exclusion and save/reopen')
 
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
   let imageRequests = 0
@@ -277,8 +387,8 @@ app.whenReady().then(async () => {
   await js('Array.from(document.querySelectorAll("button")).find(x => x.textContent.includes("打开文件")).click()')
   await until(() => js('Boolean(window.__compile?.html.includes("<svg"))'), 'native worker conversion')
   const snapshot = await js('window.__compile')
-  assert.match(snapshot.html, /<sub[^>]*>2<\/sub>/)
-  assert.match(snapshot.html, /<sup[^>]*>2<\/sup>/)
+  assert.equal(await js('(() => { const t = document.createElement("template"); t.innerHTML = window.__compile.html; return t.content.querySelector("sub")?.textContent; })()'), '2')
+  assert.equal(await js('(() => { const t = document.createElement("template"); t.innerHTML = window.__compile.html; return t.content.querySelector("sup")?.textContent; })()'), '2')
   assert.equal(snapshot.html.includes('url('), false)
   assert.equal(snapshot.stats.images, 2)
   assert.equal(snapshot.stats.codeBlocks, 1)
@@ -334,16 +444,25 @@ app.whenReady().then(async () => {
   main.webContents.debugger.attach('1.3')
   let previewTarget = null, previewSession = null
   const previewJs = async expression => {
-    const { targetInfos } = await main.webContents.debugger.sendCommand('Target.getTargets')
-    const frame = targetInfos.find(target => target.type === 'iframe' && target.url === 'about:srcdoc')
-    if (!frame) return null
-    if (previewTarget !== frame.targetId) {
-      const attached = await main.webContents.debugger.sendCommand('Target.attachToTarget', { targetId: frame.targetId, flatten: true })
-      previewTarget = frame.targetId; previewSession = attached.sessionId
+    const { frameTree: mainTree } = await main.webContents.debugger.sendCommand('Page.getFrameTree')
+    let frameId = mainTree.childFrames?.find(tree => tree.frame.url === 'about:srcdoc')?.frame.id
+    let sessionId
+    // The editable same-origin preview shares the renderer process. Retain the OOPIF
+    // fallback for Chromium builds that isolate sandboxed frames in another target.
+    if (!frameId) {
+      const { targetInfos } = await main.webContents.debugger.sendCommand('Target.getTargets')
+      const frame = targetInfos.find(target => target.type === 'iframe' && target.url === 'about:srcdoc')
+      if (!frame) return null
+      if (previewTarget !== frame.targetId) {
+        const attached = await main.webContents.debugger.sendCommand('Target.attachToTarget', { targetId: frame.targetId, flatten: true })
+        previewTarget = frame.targetId; previewSession = attached.sessionId
+      }
+      sessionId = previewSession
+      const { frameTree } = await main.webContents.debugger.sendCommand('Page.getFrameTree', {}, sessionId)
+      frameId = frameTree.frame.id
     }
-    const { frameTree } = await main.webContents.debugger.sendCommand('Page.getFrameTree', {}, previewSession)
-    const { executionContextId } = await main.webContents.debugger.sendCommand('Page.createIsolatedWorld', { frameId: frameTree.frame.id, worldName: 'md2w-regression' }, previewSession)
-    const result = await main.webContents.debugger.sendCommand('Runtime.evaluate', { expression, contextId: executionContextId, returnByValue: true, awaitPromise: true, userGesture: true }, previewSession)
+    const { executionContextId } = await main.webContents.debugger.sendCommand('Page.createIsolatedWorld', { frameId, worldName: 'md2w-regression' }, sessionId)
+    const result = await main.webContents.debugger.sendCommand('Runtime.evaluate', { expression, contextId: executionContextId, returnByValue: true, awaitPromise: true, userGesture: true }, sessionId)
     if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails))
     return result.result.value
   }
