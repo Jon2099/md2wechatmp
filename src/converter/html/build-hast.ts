@@ -2,7 +2,7 @@ import type { CompileContext, MdNode } from '../pipeline/types'
 import { childrenOf, textOf } from '../pipeline/ast'
 import { analyzeRawHtml, type RawInline } from '../parse/raw-html'
 import { ROLES, olRole, ulRole } from '@shared/roles'
-import { serializeInlineTextStyle, type SourceTextMapping } from '@shared/inline-text-style'
+import { parseInlineTextStyle, serializeInlineTextStyle, type InlineTextStyle, type SourceTextMapping } from '@shared/inline-text-style'
 import { sourceTextPieces } from '../serialize/source-mapping'
 
 export interface HText {
@@ -313,10 +313,30 @@ class HastBuilder {
       } else if (item.kind === 'br') {
         out.push(el('br', undefined, []))
       } else if (item.kind === 'wrap') {
-        out.push(el(item.tag, undefined, this.rawInline(item.children)))
+        out.push(this.inlineWrapper(item.tag, this.rawInline(item.children), item.style))
       }
     }
     return out
+  }
+
+  private inlineWrapper(tag: string, children: HNode[], style?: InlineTextStyle): HElement {
+    if (style?.color) this.ctx.inlineColors.add(style.color)
+    if (style?.fontSize) this.ctx.inlineFontSizes.add(parseInt(style.fontSize, 10))
+    // Theme rules give strong/code their own colors. Carry explicit user styles
+    // through those children while allowing a nested explicit style to win.
+    const inherit = (node: HNode, inherited: InlineTextStyle): void => {
+      if (node.type !== 'element') return
+      const own = parseInlineTextStyle(node.properties.style ?? '')
+      const effective = { ...inherited, ...own }
+      const declarations = serializeInlineTextStyle({
+        color: own.color ? undefined : inherited.color,
+        fontSize: own.fontSize ? undefined : inherited.fontSize,
+      })
+      if (declarations) node.properties.style = [node.properties.style, declarations].filter(Boolean).join(';')
+      node.children.forEach(child => inherit(child, effective))
+    }
+    if (style) children.forEach(child => inherit(child, style))
+    return el(tag, undefined, children, style ? serializeInlineTextStyle(style) || 'display:inline' : tag === 'span' ? 'display:inline' : undefined)
   }
 
   private inline(nodes: MdNode[]): HNode[] {
@@ -326,13 +346,13 @@ class HastBuilder {
       // remark keeps an inline HTML start tag, its Markdown children, and the
       // end tag as siblings. Pair safe wrappers before rendering those children.
       if (node.type === 'html') {
-        const opening = /^<(sub|sup|u|span)(?:\s[^<>]*?)?\s*>$/i.exec(String(node.value))
+        const opening = /^<(sub|sup|u|span|font|b|strong)(?:\s[^<>]*?)?\s*>$/i.exec(String(node.value))
         if (opening) {
           const stack = [opening[1].toLowerCase()]
           let end = index + 1
           for (; end < nodes.length; end += 1) {
             if (nodes[end].type !== 'html') continue
-            const tag = /^<(\/)?(sub|sup|u|span)(?:\s[^<>]*?)?\s*>$/i.exec(String(nodes[end].value))
+            const tag = /^<(\/)?(sub|sup|u|span|font|b|strong)(?:\s[^<>]*?)?\s*>$/i.exec(String(nodes[end].value))
             if (!tag) continue
             if (!tag[1]) stack.push(tag[2].toLowerCase())
             else if (stack.at(-1) !== tag[2].toLowerCase()) break
@@ -341,20 +361,18 @@ class HastBuilder {
           }
           if (stack.length === 0 && end < nodes.length) {
             const tagName = opening[1].toLowerCase()
-            const analyzed = tagName === 'span' ? analyzeRawHtml(`${node.value}</span>`).inline[0] : undefined
-            const inlineStyle = analyzed?.kind === 'wrap' ? analyzed.style : undefined
-            if (inlineStyle?.color) this.ctx.inlineColors.add(inlineStyle.color)
-            if (inlineStyle?.fontSize) this.ctx.inlineFontSizes.add(parseInt(inlineStyle.fontSize, 10))
-            if (tagName === 'span') this.ctx.counters.inlineMarkupChars += String(node.value).length + String(nodes[end].value).length
-            out.push(el(tagName, undefined, this.inline(nodes.slice(index + 1, end)),
-              inlineStyle ? serializeInlineTextStyle(inlineStyle) || 'display:inline' : tagName === 'span' ? 'display:inline' : undefined))
+            const analyzed = analyzeRawHtml(`${node.value}</${tagName}>`).inline[0]
+            if (analyzed?.kind === 'wrap') {
+              this.ctx.counters.inlineMarkupChars += String(node.value).length + String(nodes[end].value).length
+              out.push(this.inlineWrapper(analyzed.tag, this.inline(nodes.slice(index + 1, end)), analyzed.style))
+            }
             index = end
             continue
           }
           out.push(text(String(node.value)))
           continue
         }
-        if (/^<\/(sub|sup|u|span)\s*>$/i.test(String(node.value))) {
+        if (/^<\/(sub|sup|u|span|font|b|strong)\s*>$/i.test(String(node.value))) {
           out.push(text(String(node.value)))
           continue
         }
@@ -369,7 +387,7 @@ class HastBuilder {
           break
         }
         case 'wxRawInline':
-          out.push(el(String(node.tag), undefined, this.inline(childrenOf(node))))
+          out.push(this.inlineWrapper(String(node.tag), this.inline(childrenOf(node)), node.inlineStyle as InlineTextStyle | undefined))
           break
         case 'text':
           out.push(...sourceTextPieces(this.ctx.source, node).map(piece => ({ ...text(piece.value), source: piece.source })))

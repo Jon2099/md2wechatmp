@@ -20,6 +20,7 @@ const CODE_TITLES: Record<string, string> = {
   'table.wide': '超宽表格紧凑显示',
   'table.too-many-columns': '超多列表格提醒',
   'table.fallback-records': '超宽表格转文字卡片',
+  'table.unsupported-style': '部分表格样式未支持',
   'code.long-line': '长代码行自动折行',
   'diagram.source-block': '图表代码块（未渲染）',
   'code.unknown-language': '普通等宽代码块',

@@ -21,6 +21,7 @@ import { buildThemeCss, assertSafeCss } from '../../themes/build-css'
 import { serializeHast } from '../serialize/html'
 import { serializePlainText } from '../serialize/plain-text'
 import { sanitizeFragment } from '../sanitize/sanitize'
+import { extractTableStyles, applyTableStyles } from '../styles/table-styles'
 import { checkInvariants } from '../validate/invariants'
 import { collectStats } from '../serialize/stats'
 import { createDiagnosticSink } from './context'
@@ -48,6 +49,7 @@ export async function runPipeline(input: CompileInput, deps: ConverterDeps): Pro
 
   const omittedTitleChars = applyTitlePolicy(root, ctx)
   normalizeDocument(root, ctx)
+  const tableStyles = extractTableStyles(root, ctx)
   await transformMedia(root, ctx)
   resolveLinks(root, ctx)
   resolveFootnotes(root, ctx)
@@ -70,6 +72,7 @@ export async function runPipeline(input: CompileInput, deps: ConverterDeps): Pro
   }
 
   const hast = buildHast(root, ctx)
+  applyTableStyles(hast, tableStyles, ctx)
   const { css, classes } = buildThemeCss(ctx.theme, ctx.options)
   assertSafeCss(css)
 

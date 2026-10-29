@@ -118,6 +118,18 @@ describe('预览局部文字样式', () => {
     expect(textOf(parseFragment(result.html))).toBe('正文 重点。')
   })
 
+  it('外层局部样式覆盖内部加粗的主题样式，同时保留内层显式颜色和字号', async () => {
+    const result = await compile('正文 <span style="color:#1a73e8;font-size:20px">**蓝色大字** <span style="color:#ea580c;font-size:14px">**橙色小字**</span></span>。')
+    expect(result.status, JSON.stringify(result.diagnostics)).toBe('ok')
+    const strong = elements(parseFragment(result.html), 'strong')
+    expect(textOf(strong[0])).toBe('蓝色大字')
+    expect(strong[0].attrs.find(attr => attr.name === 'style')?.value).toMatch(/color:#1a73e8/)
+    expect(strong[0].attrs.find(attr => attr.name === 'style')?.value).toMatch(/font-size:20px/)
+    expect(textOf(strong[1])).toBe('橙色小字')
+    expect(strong[1].attrs.find(attr => attr.name === 'style')?.value).toMatch(/color:#ea580c/)
+    expect(strong[1].attrs.find(attr => attr.name === 'style')?.value).toMatch(/font-size:14px/)
+  })
+
   it('支持颜色与字号组合应用并通过合规校验', async () => {
     const source = '默认正文，以及局部大字测试。'
     const formatted = applyInlineTextStyle(source, [selected(source, '局部大字')], {

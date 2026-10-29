@@ -4,11 +4,12 @@ import type { MdNode } from '../pipeline/types'
 import { parseInlineTextStyle, type InlineTextStyle } from '@shared/inline-text-style'
 
 export type RawImageKind = 'img' | 'svg' | 'picture' | 'video' | 'iframe'
+export type RawInlineTag = 'sub' | 'sup' | 'u' | 'span' | 'strong'
 
 export type RawInline =
   | { kind: 'text'; value: string }
   | { kind: 'br' }
-  | { kind: 'wrap'; tag: 'sub' | 'sup' | 'u' | 'span'; children: RawInline[]; style?: InlineTextStyle }
+  | { kind: 'wrap'; tag: RawInlineTag; children: RawInline[]; style?: InlineTextStyle }
   | { kind: 'image'; src: string | null; imageKind: RawImageKind; mediaType: MediaType; alt?: string; svgSource?: string }
 
 export interface RawHtmlResult {
@@ -16,7 +17,7 @@ export interface RawHtmlResult {
   blocked: string[]
 }
 
-const ALLOWED_INLINE = new Set(['sub', 'sup', 'u', 'span'])
+const ALLOWED_INLINE = new Set(['sub', 'sup', 'u', 'span', 'font', 'b', 'strong'])
 
 interface AnyNode {
   nodeName: string
@@ -81,10 +82,16 @@ function walkNodes(nodes: AnyNode[], blocked: string[]): RawInline[] {
       continue
     }
     if (node.tagName && ALLOWED_INLINE.has(node.tagName)) {
+      const tag = node.tagName === 'font' ? 'span' : node.tagName === 'b' ? 'strong' : node.tagName
+      const color = attrOf(node, 'color')?.trim() ?? ''
+      // Legacy font colors use the same literal-color policy as styled spans.
+      const style = node.tagName === 'font'
+        ? { ...(/^#[\da-f]{6}$/i.test(color) ? { color: color.toLowerCase() } : {}), ...parseInlineTextStyle(attrOf(node, 'style') ?? '') }
+        : tag === 'span' ? parseInlineTextStyle(attrOf(node, 'style') ?? '') : undefined
       result.push({
         kind: 'wrap',
-        tag: node.tagName as 'sub' | 'sup' | 'u' | 'span',
-        style: node.tagName === 'span' ? parseInlineTextStyle(attrOf(node, 'style') ?? '') : undefined,
+        tag: tag as RawInlineTag,
+        style,
         children: walkNodes(node.childNodes ?? [], blocked),
       })
       continue

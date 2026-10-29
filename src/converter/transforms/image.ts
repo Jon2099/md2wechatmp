@@ -217,7 +217,7 @@ export async function transformMedia(root: MdNode, ctx: CompileContext): Promise
   const rawParts = (items: RawInline[], original: MdNode): MdNode[] => items.flatMap((item): MdNode[] => {
     if (item.kind === 'text') return item.value ? [{ type: 'text', value: item.value }] : []
     if (item.kind === 'br') return [{ type: 'break' }]
-    if (item.kind === 'wrap') return [{ type: 'wxRawInline', tag: item.tag, children: rawParts(item.children, original) }]
+    if (item.kind === 'wrap') return [{ type: 'wxRawInline', tag: item.tag, inlineStyle: item.style, children: rawParts(item.children, original) }]
     if (item.mediaType !== 'video' && !isVideoUrl(item.src ?? '', item.alt ?? '')) {
       return [imageNode(item.src ?? '', item.alt ?? '', original, item.svgSource)]
     }

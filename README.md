@@ -209,7 +209,30 @@ env -u ELECTRON_RUN_AS_NODE ./node_modules/electron/dist/electron.exe scripts/ca
 正文 <span style="color:#e53935;font-size:18px">选中的文字</span>。
 ```
 
+也兼容 `<font color="#1a73e8"><b>59</b></font>` 这样的旧式颜色标记（含表格单元格）：转换时输出带行内颜色的 `span` 和 `strong`，显式颜色在加粗文字中仍会保留。`font` 的字体和旧式字号属性会被忽略。
+
 代码、公式、自动编号和视频提示等生成内容不支持局部编辑。转换中或预览过期时暂停编辑，避免修改旧选区。选中后可按 `Tab` 进入工具条，`Esc` 关闭。只接受六位十六进制颜色和 10–48px 的整数字号，其他 CSS 和事件属性会被移除。预览位置标记只用于编辑，不进入复制与导出结果。
+
+### 在 Markdown 中设置表格样式
+
+独立的 `<style>` 块可设置文内所有 Markdown 表格。例如：
+
+```html
+<style>
+table {
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+table th, table td {
+  font-size: 12px !important;
+  padding: 6px 8px !important;
+}
+</style>
+```
+
+支持 `table`、`th`、`td`、`table th`、`table td` 及其逗号组合；可设置 10–48px 字号、行高、间距、对齐、边框、十六进制颜色等静态样式。`padding` 和 `margin` 的 1–4 个像素值会展开成四边属性。支持规则间的 `!important`、选择器优先级和书写顺序；表格的文字样式会传给单元格，单元格或局部文字的显式设置可覆盖继承值。
+
+样式先转换为行内属性，再进入预览、复制和导出；最终结果没有 `<style>` 或 `!important`，正文中也不显示 CSS 源码。代码块中的示例不参与转换。不支持的选择器、属性、外部资源和动态 CSS 会被忽略，并显示排版提示。
 
 ## 转换规则速览
 
