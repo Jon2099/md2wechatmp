@@ -26,7 +26,7 @@ from typing import Mapping, Sequence
 ROOT = Path(__file__).resolve().parent
 PLATFORMS = {'Windows': 'windows', 'Darwin': 'macos', 'Linux': 'linux'}
 BUILDER_FLAGS = {'windows': '--win', 'macos': '--mac', 'linux': '--linux'}
-FORMATS = {'windows': 'NSIS EXE', 'macos': 'DMG + ZIP', 'linux': 'AppImage + tar.gz'}
+FORMATS = {'windows': 'NSIS EXE', 'macos': 'DMG + ZIP', 'linux': 'DEB'}
 APPLE_SIGNING_ENV = {
     'APPLE_ID', 'APPLE_APP_SPECIFIC_PASSWORD', 'APPLE_TEAM_ID', 'APPLE_API_KEY',
     'APPLE_API_KEY_ID', 'APPLE_API_ISSUER', 'APPLE_KEYCHAIN', 'APPLE_KEYCHAIN_PROFILE',

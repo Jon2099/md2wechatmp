@@ -47,9 +47,22 @@ dmg:
 linux:
   icon: build/icons
   category: Office
+  # AppImage 依赖 libfuse2、无法上架麒麟/统信应用商店，只出 deb 安装包。
+  # 注意不要再加 tar.gz / AppImage：它们与 deb 并发做 xz、7z 极限压缩，会让打包时间翻倍。
+  # 需要免安装运行请用 build.py --dir 生成应用目录。
   target:
-    - AppImage
-    - tar.gz
+    - deb
+  # deb 的 Maintainer 字段必填，替换为真实维护者邮箱即可。
+  maintainer: md2wechatmp <md2wechatmp@users.noreply.github.com>
+  # 可执行文件名使用 ASCII，避免中文路径在国产系统的终端、桌面文件和服务脚本中出问题；
+  # 桌面菜单仍显示 productName「排版助手」。
+  executableName: md2wechatmp
+  # 让 .desktop 文件名取自 package.json 的 desktopName，与 Electron 的 app_id / WM_CLASS 一致，
+  # 否则 UKUI、DDE 等桌面可能无法把运行中的窗口归到菜单项。
+  syncDesktopName: true
+deb:
+  packageCategory: office
+  priority: optional
 nsis:
   # 当前不使用 electron-updater；完整安装包可采用更紧凑的 solid 7z 压缩。
   differentialPackage: false

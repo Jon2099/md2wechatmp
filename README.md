@@ -80,11 +80,21 @@ python3 build.py
 | --- | --- | --- |
 | Windows | NSIS `.exe` 安装包 | 应用、安装包和卸载程序均不签名，保留图标与版本信息 |
 | macOS | `.dmg` 和 `.zip` | `identity: "-"`，仅 ad-hoc 空签名；不使用开发者证书、不公证，DMG 不签名 |
-| Linux | `.AppImage` 和 `.tar.gz` | 不签名 |
+| Linux | `.deb` 安装包 | 不签名 |
 
 ### 找到并使用打包产物
 
-打包成功后，终端会显示输出目录。Windows x64、当前版本 `0.1.0` 的安装包为 `dist/md2wechatmp-0.1.0-win-x64.exe`，双击即可安装；版本号取自 `package.json`。macOS 使用生成的 `.dmg` 或 `.zip`，Linux 使用 `.AppImage` 或 `.tar.gz`。
+打包成功后，终端会显示输出目录。Windows x64、当前版本 `0.1.0` 的安装包为 `dist/md2wechatmp-0.1.0-win-x64.exe`，双击即可安装；版本号取自 `package.json`。macOS 使用生成的 `.dmg` 或 `.zip`，Linux 使用生成的 `.deb` 安装包。
+
+Linux 安装与卸载：
+
+```bash
+sudo dpkg -i dist/*.deb     # 安装，包名取自 package.json 的 name
+sudo apt -f install         # 仅当提示缺少依赖时执行
+sudo dpkg -r md2wechatmp    # 卸载
+```
+
+`.deb` 使用默认运行依赖（`libgtk-3-0`、`libnss3`、`libxtst6`、`libatspi2.0-0` 等），麒麟 V10 与统信 UOS 20 均可直接满足；界面入口为「排版助手」，可执行文件名固定为 `md2wechatmp`。由于 `.deb` 不打包 glibc，打包机的 glibc 版本必须不高于目标系统，面向国产系统发版时请在 Debian 10 / Ubuntu 20.04 级别的环境中打包。需要免安装运行时用 `python3 build.py --dir` 生成应用目录，不要再叠加 `tar.gz` 或 `AppImage` 目标：多个目标会并发做 xz / 7z 极限压缩，打包时间成倍增加。打包过程耗时主要花在压缩上，可用 `ELECTRON_BUILDER_COMPRESSION_LEVEL=1` 临时降低压缩级别换取速度，或用 `deb.compression: gz` 替换默认的 `xz`。
 
 需要免安装运行时，使用 `--dir`：
 
